@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html ng-app="Bitford" ng-csp>
+  <head>
+    <meta charset="utf-8">
+    <title>Bitford</title>
+    <script src="angular.js"></script>
+    <script src="digest.js"></script>
+    <script src="base64.js"></script>
+    <script src="socket.js"></script>
+    <script src="benc.js"></script>
+    <script src="bitford.js"></script>
+    <script src="app.js"></script>
+    <link rel="stylesheet" type="text/css" href="style.css">
+  </head>
+
+  <body>
+    <form ng-controller="LoadController">
+      <label>Load: <input type="file" file-receiver="loadFile"></label>
+    </form>
+
+    <section ng-controller="TorrentsController">
+      <ul ng-repeat="torrent in torrents">
+	<li>
+	  <p>{{torrent.name}}</p>
+	  <ul ng-repeat="peer in torrent.peers">
+	    <li>
+	      {{peer.ip}}:{{peer.port}}
+	      {{peer.state}} {{peer.error}}
+	      <span ng-show="peer.state == 'connected'">
+		{{peer.getDonePercent()}}%
+		<span ng-show="peer.choked" style="color: red">C</span>
+		<span ng-hide="peer.choked" style="color: green">U</span>
+		<span ng-show="peer.interested" style="color: blue">I</span>
+		<span ng-hide="peer.interested" style="color: #ccc">N</span>
+	      </span>
+	    </li>
+	  </ul>
+	</li>
+      </ul>
+    </section>
+  </body>
+</html>

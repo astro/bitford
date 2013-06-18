@@ -1,0 +1,30 @@
+{
+    "manifest_version": 2,
+
+    "name": "Bitford",
+    "description": "BitTorrent",
+    "version": "0.0",
+
+    "permissions": [
+	"experimental",
+	{
+	    "socket": ["tcp-connect:*:*", "tcp-listen::*"]
+	},
+	"storage",
+	"fileSystem",
+	"http://*/announce"
+    ],
+    "app": {
+	"background": {
+	    "scripts": [
+		"background.js"
+	    ]
+	}
+    },
+    "file_handlers": {
+	"torrent": {
+	    "title": "Start BitTorrent download",
+	    "types": ["application/x-bittorrent"]
+	}
+    }
+}
