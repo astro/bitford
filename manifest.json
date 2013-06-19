@@ -22,9 +22,16 @@
 	}
     },
     "file_handlers": {
-	"torrent": {
+	"any": {
 	    "title": "Start BitTorrent download",
-	    "types": ["application/x-bittorrent"]
+	    "types": ["application/x-bittorrent"],
+	    "extensions": ["torrent"]
 	}
-    }
+    },
+    "intents": {
+        "http://webintents.org/view" : [{
+            "title" : "Start BitTorrent download",
+            "type" : ["application/x-bittorrent"]
+        }]
+  }
 }
