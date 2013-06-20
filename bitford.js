@@ -5,6 +5,26 @@ function Torrent(meta) {
     this.infoHash = meta.infoHash;
     this.peerId = "-BF000-xxxxxxxxxxxxx";
     this.peers = [];
+    var pieceLength;
+    if (typeof meta.info['piece length'] == 'number')
+	pieceLength = meta.info['piece length'];
+    else
+	throw "Invalid torrent: no piece length";
+
+    /* Init Storage */
+    var name = UTF8ArrToStr(meta.info.name);
+    if (typeof meta.info.length == 'number')
+	this.store = new Store([{ path: [name], size: meta.info.length }], pieceLength);
+    else if (meta.info.files.__proto__.constructor == Array)
+	this.store = new Store(meta.info.files.map(function(file) {
+	    return { path: [name].concat(file.path.map(UTF8ArrToStr)),
+		     size: file.length
+		   };
+	}), pieceLength);
+    else
+	throw "Invalid torrent: no files";
+
+    /* Init trackers */
     if (meta['announce-list'])
 	this.trackers = meta['announce-list'].map(function(urls) {
 	    urls = urls.map(UTF8ArrToStr);
@@ -131,10 +151,22 @@ function encodeQuery(v) {
     }
 }
 
+var MAX_REQS_INFLIGHT = 10;
+var REQ_LENGTH = Math.pow(2, 15);
+
 function Peer(torrent, info) {
     this.torrent = torrent;
     this.ip = info.ip;
     this.port = info.port;
+    this.direction = 'outgoing';
+
+    this.requestedChunks = [];
+    // We in them
+    this.interesting = false;
+    this.choking = true;
+    // Them in us
+    this.interested = false;
+    this.choked = true;
 
     console.log("Connect peer", this.ip, ":", this.port);
     this.connect();
@@ -183,7 +215,6 @@ Peer.prototype = {
     },
 
     sendLength: function(l) {
-	console.log(this.ip, "sendLength", l);
 	this.sock.write(new Uint8Array([
 	    (l >> 24) & 0xff,
 	    (l >> 16) & 0xff,
@@ -197,11 +228,9 @@ Peer.prototype = {
 	this.sendLength(1 + bitfield.byteLength);
 	this.sock.write(new Uint8Array([5]));
 	this.sock.write(bitfield);
-	console.log(this.ip, "sent bitfield", bitfield);
     },
 
     onData: function(data) {
-	console.log(this.ip, "onData", data);
 	if (this.buffer) {
 	    concatArrays([this.buffer, data], function(data) {
 		this.buffer = null;
@@ -212,7 +241,7 @@ Peer.prototype = {
     },
 
     processData: function(data) {
-	console.log(this.ip, "processData", data);
+	// console.log(this.ip, "processData", data);
 	var fail = function(msg) {
 	    this.sock.end();
 	    this.state = "error";
@@ -256,16 +285,17 @@ Peer.prototype = {
     },
 
     handleMessage: function(data) {
-	console.log(this.ip, "handleMessage", data[0], data);
+	// console.log(this.ip, "handleMessage", data[0], data);
 	var piece;
 	switch(data[0]) {
 	    case 0:
-		/* Unchoke */
-		this.choked = false;
-		break;
-	    case 1:
 		/* Choke */
 		this.choked = true;
+		break;
+	    case 1:
+		/* Unchoke */
+		this.choked = false;
+		this.canRequest();
 		break;
 	    case 2:
 		/* Interested */
@@ -277,29 +307,48 @@ Peer.prototype = {
 		break;
 	    case 4:
 		/* Have */
-		piece = data[3] << 24 |
-		    data[2] << 16 |
-		    data[1] << 8 |
-		    data[0];
-		if (this.bitfield.length >= Math.floor(piece / 8))
+		piece = data[4] << 24 |
+		    data[3] << 16 |
+		    data[2] << 8 |
+		    data[1];
+		if (this.bitfield.length >= Math.floor(piece / 8)) {
 		    this.bitfield[Math.floor(piece / 8)] |= 1 << (7 - (piece % 8));
+		    this.onUpdateBitfield();
+		}
 		break;
 	    case 5:
 		/* Bitfield */
 		this.bitfield = new Uint8Array(data.subarray(1));
-		console.log("Bitfield", this.bitfield);
-		console.log("%", this.getDonePercent());
+		this.onUpdateBitfield();
 		break;
 	    case 6:
 		/* Request */
 		break;
 	    case 7:
 		/* Piece */
+		piece = data[1] << 24 |
+			data[2] << 16 |
+			data[3] << 8 |
+			data[4];
+		var offset = data[5] << 24 |
+			data[6] << 16 |
+			data[7] << 8 |
+			data[8];
+		this.onPiece(piece, offset, data.subarray(9));
+		this.requestedChunks = this.requestedChunks.filter(function(chunk) {
+		    return chunk.piece !== piece || chunk.offset !== offset;
+		});
+		console.log("Can request again");
+		this.canRequest();
 		break;
 	    case 8:
 		/* Cancel */
 		break;
 	}
+    },
+
+    onPiece: function(piece, offset, data) {
+	this.torrent.store.write(piece, offset, data);
     },
 
     getDonePercent: function() {
@@ -314,6 +363,41 @@ Peer.prototype = {
 		    present++;
 	}
 	return Math.floor(100 * Math.max(1, present / this.torrent.pieces));
+    },
+
+    has: function(pieceIdx) {
+	return !!(this.bitfield[Math.floor(pieceIdx / 8)] & (1 << (7 - (pieceIdx % 8))));
+    },
+
+    onUpdateBitfield: function() {
+	var interesting = this.torrent.store.isInterestedIn(this);
+	if (interesting && !this.interesting) {
+	    /* Change triggered */
+	    this.interesting = true;
+	    this.sendLength(1);
+	    /* Interested */
+	    this.sock.write(new Uint8Array([2]));
+	}
+	this.interesting = interesting;
+	// TODO: We'll need to send not interested as our pieces complete
+    },
+
+    canRequest: function() {
+	while(!this.choked && this.requestedChunks.length < MAX_REQS_INFLIGHT) {
+	    var chunk = this.torrent.store.nextToDownload(this, REQ_LENGTH);
+	    if (!chunk)
+		break;
+
+	    this.sendLength(13);
+	    var piece = chunk.piece, offset = chunk.offset, length = chunk.length;
+	    this.sock.write(new Uint8Array([
+		6,
+		(piece >> 24) & 0xff, (piece >> 16) & 0xff, (piece >> 8) & 0xff, piece & 0xff,
+		(offset >> 24) & 0xff, (offset >> 16) & 0xff, (offset >> 8) & 0xff, offset & 0xff,
+		(length >> 24) & 0xff, (length >> 16) & 0xff, (length >> 8) & 0xff, length & 0xff
+	    ]));
+	    this.requestedChunks.push(chunk);
+	}
     }
 };
 
@@ -325,3 +409,204 @@ function concatArrays(arrays, cb) {
     };
     reader.readAsArrayBuffer(blob);
 }
+
+var requestFileSystem_ = window.requestFileSystem ||
+    window.webkitRequestFileSystem;
+var PersistentStorage_ = navigator.PersistentStorage ||
+    navigator.webkitPersistentStorage;
+
+function Store(files, pieceLength) {
+    this.size = 0;
+    files.forEach(function(file) {
+	this.size += file.size;
+    }.bind(this));
+    this.pieceLength = pieceLength;
+
+    this.pieces = [];
+    /* Build pieces... */
+    var fileOffset = 0;
+    while(files.length > 0) {
+	var pieceOffset = 0;
+	var chunks = [];
+	/* ...from files */
+	while(pieceOffset < pieceLength && files.length > 0) {
+	    var length = Math.min(pieceLength - pieceOffset, files[0].size - fileOffset);
+	    chunks.push({ path: files[0].path,
+			  fileOffset: fileOffset,
+			  offset: pieceOffset,
+			  length: length });
+	    pieceOffset += length;
+	    fileOffset += length;
+	    if (fileOffset >= files[0].size) {
+		files.shift();
+		fileOffset = 0;
+	    }
+	}
+	console.log("piece", this.pieces.length, chunks);
+	this.pieces.push(new StorePiece(chunks));
+    }
+
+    /* TODO: start hashing */
+}
+Store.prototype = {
+    isInterestedIn: function(peer) {
+	for(var i = 0; i < this.pieces.length; i++) {
+	    var piece = this.pieces[i];
+	    if (piece.state !== 'complete' && peer.has(i))
+		return true;
+	}
+	return false;
+    },
+
+    nextToDownload: function(peer, chunkLength) {
+	for(var i = 0; i < this.pieces.length; i++) {
+	    var piece = this.pieces[i];
+	    var chunk = piece.state !== 'complete' &&
+		peer.has(i) &&
+		piece.nextToDownload(peer, chunkLength);
+	    if (chunk) {
+		chunk.piece = i;
+		console.log("nextToDownload", chunk);
+		return chunk;
+	    }
+	}
+	return null;
+    },
+
+    write: function(piece, offset, data) {
+	console.log("onPiece", piece, offset, data.byteLength);
+	if (piece < this.pieces.length)
+	    this.pieces[piece].write(offset, data);
+    }
+};
+
+function StorePiece(chunks) {
+    this.chunks = chunks.map(function(chunk) {
+	// chunk.state = 'unchecked';
+	chunk.state = 'missing';
+	return chunk;
+    });
+}
+StorePiece.prototype = {
+    state: 'missing',
+
+    /* walks path parts asynchronously */
+    withFile: function(parts, cb) {
+	// TODO: perhaps serialize accesses
+	requestFileSystem_(window.PERSISTENT, 0, function(fs) {
+	    var dir = fs.root, partIdx = 0;
+	    function walkParts() {
+		var part = parts[partIdx];
+		partIdx++;
+		if (partIdx < parts.length) {
+		    dir.getDirectory(part, { create: true }, function(entry) {
+			dir = entry;
+			walkParts();
+		    }, function(err) {
+			console.error("getDirectory", part, err);
+		    });
+		} else {
+		    dir.getFile(part, { create: true }, function(entry) {
+			entry.file(cb);
+		    }, function(err) {
+			console.error("getFile", part, err);
+		    });
+		}
+	    }
+	    walkParts();
+	});
+    },
+
+    /* House-keeping to be called when anything updates */
+    mergeChunks: function() {
+	/* Re-sort by offset */
+	var chunks = this.chunks.sort(function(chunk1, chunk2) {
+	    return chunk1.offset - chunk2.offset;
+	});
+	/* Coalesce subsequent chunks */
+	var newChunks = [], current;
+	for(var i = 0; i < chunks.length; i++) {
+	    var chunk = chunks[i];
+	    if (current &&
+		current.path === chunk.path &&
+		current.state !== 'requested' &&
+		current.state === chunk.state &&
+		current.offset + current.length == chunk.offset) {
+
+		current.length += chunk.length;
+	    } else {
+		current = chunk;
+		newChunks.push(current);
+	    }
+	}
+	/* Eliminate zero-length */
+	this.chunks = newChunks.filter(function(chunk) {
+	    return chunk.length > 0;
+	});
+    },
+
+    nextToDownload: function(peer, chunkLength) {
+	var result, remain = chunkLength;
+	for(var i = 0; i < this.chunks.length && remain > 0; i++) {
+	    var chunk = this.chunks[i];
+	    if (chunk.state === 'missing') {
+		chunk.state = 'requested';
+		var length = Math.min(chunk.length, remain);
+		remain -= length;
+		if (!result)
+		    result = {
+			offset: chunk.offset,
+			length: length
+		    };
+		else
+		    result.length += length;
+		if (length < chunk.length) {
+		    /* Range ends in the middle of chunk, break it */
+		    this.chunks.push({
+			state: 'missing',
+			path: chunk.path,
+			fileOffset: chunk.fileOffset + length,
+			offset: chunk.offset + length,
+			length: chunk.length - length
+		    });
+		    chunk.length = length;
+		}
+	    } else if (result)
+		/* No subsequent missing, return now */
+		break;
+	}
+	if (result)
+	    this.mergeChunks();
+	return result;
+    },
+
+    write: function(offset, data) {
+	for(var i = 0; i < this.chunks.length; i++) {
+	    var chunk = this.chunks[i];
+	    var skip = Math.min(offset, chunk.length);
+	    offset -= skip;
+	    if (offset <= 0) {
+		var length = Math.min(data.byteLength, chunk.length);
+		var buf = data.subarray(0, length);
+		console.log("write", chunk, length);
+		data = data.subarray(length);
+
+		if (chunk.length > length) {
+		    this.chunks.push({
+			state: chunk.state,
+			path: chunk.path,
+			fileOffset: chunk.fileOffset + length,
+			offset: chunk.offset + length,
+			length: chunk.length - length
+		    });
+		    chunk.length = length;
+		}
+		chunk.state = 'written';
+	    }
+	    if (data.byteLength <= 0) {
+		this.mergeChunks();
+		break;
+	    }
+	}
+    }
+};

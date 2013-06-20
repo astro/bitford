@@ -1,10 +1,11 @@
 chrome.app.runtime.onLaunched.addListener(function(launchData) {
     chrome.app.window.create('main.html', {
-	id: "main",
-	bounds: {
-	    width: 640,
-	    height: 400
-	}
+    	id: 'bitford_main'
+    }, function(win) {
+    	win.contentWindow.launchData = launchData;
     });
-    console.log("onLaunched", launchData);
+    // chrome.tabs.create({
+    // 	id: 'bitford_main',
+    // 	url: 'main.html'
+    // });
 });

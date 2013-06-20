@@ -53,7 +53,6 @@ TCPSocket.prototype = {
 
     read: function() {
 	Socket.read(this.sockId, function(readInfo) {
-	    console.log("readInfo", readInfo);
 	    if (readInfo.resultCode < 0)
 		return this.end();
 	    if (readInfo.data && this.onData) {
@@ -71,10 +70,15 @@ TCPSocket.prototype = {
 	this.writesPending++;
     },
     end: function() {
+	if (!this.sockId)
+	    return;
+
 	if (this.onEnd)
 	    this.onEnd();
 	Socket.disconnect(this.sockId);
 	Socket.destroy(this.sockId);
+
+	delete this.sockId;
     }
 };
 

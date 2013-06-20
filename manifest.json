@@ -6,12 +6,13 @@
     "version": "0.0",
 
     "permissions": [
-	"experimental",
 	{
 	    "socket": ["tcp-connect:*:*", "tcp-listen::*"]
 	},
 	"storage",
+	"unlimitedStorage",
 	"fileSystem",
+	"fileSystem.write",
 	"http://*/announce"
     ],
     "app": {

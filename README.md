@@ -12,6 +12,7 @@
 
 * Peer limits
 * Throttling
+* UDP trackers
 
 * Magnet Links
 * DHT
