@@ -421,8 +421,9 @@ function Store(files, pieceLength) {
 		fileOffset = 0;
 	    }
 	}
-	this.pieces.push(new StorePiece(chunks));
+	this.pieces.push(new StorePiece(this, chunks));
     }
+    this.fileQueues = {};
 
     /* TODO: start hashing */
 }
@@ -454,22 +455,10 @@ Store.prototype = {
     write: function(piece, offset, data) {
 	if (piece < this.pieces.length)
 	    this.pieces[piece].write(offset, data);
-    }
-};
-
-function StorePiece(chunks) {
-    this.chunks = chunks.map(function(chunk) {
-	// chunk.state = 'unchecked';
-	chunk.state = 'missing';
-	return chunk;
-    });
-}
-StorePiece.prototype = {
-    state: 'missing',
+    },
 
     /* walks path parts asynchronously */
-    withFile: function(parts, cb) {
-	// TODO: perhaps serialize accesses
+    withFileEntry: function(parts, cb) {
 	requestFileSystem_(window.PERSISTENT, 0, function(fs) {
 	    var dir = fs.root, partIdx = 0;
 	    function walkParts() {
@@ -484,7 +473,7 @@ StorePiece.prototype = {
 		    });
 		} else {
 		    dir.getFile(part, { create: true }, function(entry) {
-			entry.file(cb);
+			cb(entry);
 		    }, function(err) {
 			console.error("getFile", part, err);
 		    });
@@ -493,6 +482,62 @@ StorePiece.prototype = {
 	    walkParts();
 	});
     },
+
+    withFile: function(parts, type, cb) {
+	var id = parts.join("/");
+	var fileQueues = this.fileQueues;
+	var item = { type: type, callback: cb };
+	if (fileQueues.hasOwnProperty(id)) {
+	    fileQueues[id].push(item);
+	} else {
+	    fileQueues[id] = [item];
+	    this.withFileEntry(parts, function(entry) {
+		console.log("fileEntry", id, entry.fullPath, entry.toURL());
+		var readFile, writer;
+		function workQueue() {
+		    var item = fileQueues[id].shift();
+		    console.log("workQueue", item);
+		    if (!item) {
+			delete fileQueues[id];
+		    } else if (item.type === 'read') {
+			if (writer)
+			    writer = null;
+			if (readFile)
+			    item.callback(readFile, workQueue);
+			else
+			    entry.file(function(file) {
+				readFile = file;
+				item.callback(readFile, workQueue);
+			    });
+		    } else if (item.type === 'write') {
+			if (readFile)
+			    readFile = null;
+			if (writer)
+			    item.callback(writer, workQueue);
+			else
+			    entry.createWriter(function(writer_) {
+				writer = writer_;
+				item.callback(writer, workQueue);
+			    });
+		    }
+		}
+		workQueue();
+	    });
+	}
+    }
+};
+
+function StorePiece(piece, chunks) {
+    this.piece = piece;
+    this.chunks = chunks.map(function(chunk) {
+	// chunk.state = 'unchecked';
+	chunk.state = 'missing';
+	return chunk;
+    });
+}
+StorePiece.prototype = {
+    state: 'missing',
+
 
     /* House-keeping to be called when anything updates */
     mergeChunks: function() {
@@ -557,6 +602,51 @@ StorePiece.prototype = {
 	return result;
     },
 
+    read: function(offset, length, callback) {
+	if (length == 0)
+	    callback();
+
+	var pending = 0, bufs = [];
+	function onRead() {
+	    var i = pending;
+	    pending++;
+	    return function(data) {
+		if (data)
+		    bufs[i] = data;
+		pending--;
+		if (pending < 1) {
+		    var b = new BufferList();
+		    bufs.forEach(function(buf) {
+			if (buf)
+			    b.append(buf);
+		    });
+		    callback(b);
+	    };
+	}
+	for(var i = 0; i < this.chunks.length; i++) {
+	    var chunk = this.chunks[i];
+	    if (offset >= chunk.length) {
+		offset -= chunk.length;
+	    } else if (l > 0) {
+		var l = Math.min(chunk.length, length);
+		this.piece.withFile(chunk.path, 'read', function(file) {
+		    var reader = new FileReader();
+		    var cb = onRead();
+		    reader.onloadend = function() {
+			cb(reader.result);
+		    };
+		    reader.onerror = function() {
+			cb();
+		    };
+		    reader.readAsArrayBuffer(file.slice(chunk.fileOffset + offset, l));
+		});
+		offset = 0;
+		length -= l;
+	    } else
+		break;
+	}
+    },
+
     write: function(offset, data) {
 	for(var i = 0; i < this.chunks.length; i++) {
 	    var chunk = this.chunks[i];
@@ -564,8 +654,16 @@ StorePiece.prototype = {
 	    offset -= skip;
 	    if (offset <= 0) {
 		var length = Math.min(data.length, chunk.length);
-		//var buf = data.slice(0, length);
-		console.log("write", chunk, length);
+		var blob = new Blob(data.getBuffers(0, length));
+		this.piece.withFile(chunk.path, 'write', function(writer, cb) {
+		    console.log("write", chunk, length);
+		    writer.seek(chunk.offset);
+		    writer.write(blob);
+		    writer.onwriteend = function() {
+			writer.onwriteend = null;
+			cb();
+		    };
+		});
 		data.take(length);
 
 		if (chunk.length > length) {
