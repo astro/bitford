@@ -223,13 +223,15 @@ StorePiece.prototype = {
 	}.bind(this));
 	if (this.sha1pos >= this.store.pieceLength) {
 	    var hash = new Uint8Array(this.sha1.finalize());
-	    delete this.sha1;
+	    this.sha1 = null;
 
 	    var valid = true;
 	    for(var i = 0; i < 20; i++)
 		valid = valid && (hash[i] === this.expectedHash[i]);
-	    if (!valid)
+	    if (!valid) {
 		console.warn("Invalid piece", hash, "<>", this.expectedHash);
+		this.sha1pos = 0;
+	    }
 	    this.valid = valid;
 	    var newState = valid ? 'valid' : 'missing';
 	    for(i = 0; i < this.chunks.length; i++) {

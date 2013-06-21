@@ -44,12 +44,14 @@ app.directive('piecesCanvas', function() {
 	restrict: 'A',
 	link: function($scope, element, attrs) {
 	    function draw() {
+		var pieceLength = $scope.torrent.store.pieceLength;
+		element.attr('width', 3 * Math.ceil(pieceLength / CHUNK_LENGTH));
+		element.attr('height', 3 * $scope.torrent.store.pieces.length);
 		var canvas = element[0];
 		var ctx = canvas.getContext('2d');
 		ctx.fillStyle = "white";
 		ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-		var pieceLength = $scope.torrent.store.pieceLength;
 		var pieces = $scope.torrent.store.pieces;
 		if (!pieces)
 		    return;
@@ -90,7 +92,7 @@ app.directive('piecesCanvas', function() {
 		    ctx.stroke();
 		}
 
-		setTimeout(draw, 100);
+		setTimeout(draw, 500);
 	    }
 	    draw();
         }
@@ -99,11 +101,12 @@ app.directive('piecesCanvas', function() {
 
 app.controller('TorrentsController', function($scope, Torrents) {
     $scope.torrents = Torrents;
+    $scope.round = Math.round;
     function tick() {
 	setTimeout(function() {
 	    $scope.$apply(function() { });
 	    tick();
-	}, 100);
+	}, 500);
     }
     tick();
 });

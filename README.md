@@ -1,11 +1,12 @@
 ## Roadmap
 
-* peers6
-* Storage
-* Hashing
+* Fix finishing
+* request only on drain
+* rm from requestedChunks
 * Tracker stats
 * Priorities & shaping
 * Seeding
+* Truncating/Hashing on existing files?
 
 ## Unsolved
 

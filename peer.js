@@ -184,7 +184,7 @@ Peer.prototype = {
 	    if (!this.minDelay)
 		this.minDelay = delay;
 	    else if (delay < this.minDelay) {
-		this.minDelay = 0.8 * this.minDelay + 0.2 * delay;
+		this.minDelay = 0.2 * this.minDelay + 0.8 * delay;
 		this.inflightThreshold++;
 	    } else {
 		this.minDelay = 0.95 * this.minDelay + 0.05 * delay;
