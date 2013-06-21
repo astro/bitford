@@ -61,9 +61,9 @@ Store.prototype = {
 	return null;
     },
 
-    write: function(piece, offset, data) {
+    write: function(piece, offset, data, cb) {
 	if (piece < this.pieces.length)
-	    this.pieces[piece].write(offset, data);
+	    this.pieces[piece].write(offset, data, cb);
     },
 
     /* walks path parts asynchronously */
@@ -255,20 +255,25 @@ StorePiece.prototype = {
 	}
     },
 
-    write: function(offset, data) {
+    write: function(offset, data, cb) {
 	for(var i = 0; i < this.chunks.length; i++) {
 	    var chunk = this.chunks[i];
 	    var skip = Math.min(offset, chunk.length);
 	    offset -= skip;
 	    if (offset <= 0) {
 		var length = Math.min(data.length, chunk.length);
-		var blob = new Blob(data.getBuffers(0, length));
-		this.piece.withFile(chunk.path, 'write', function(writer, cb) {
-		    console.log("write", chunk, length);
-		    writer.seek(chunk.offset);
+		var bufs = data.getBuffers(0, length);
+		var blob = new Blob(bufs);
+		this.store.withFile(chunk.path, 'write', function(writer, releaseFile) {
+		    // console.log("write", chunk, length);
+		    writer.seek(chunk.fileOffset);
 		    writer.write(blob);
 		    writer.onwriteend = function() {
 			writer.onwriteend = null;
+			releaseFile();
+
+			chunk.state = 'written';
+
 			cb();
 		    };
 		});
@@ -284,7 +289,7 @@ StorePiece.prototype = {
 		    });
 		    chunk.length = length;
 		}
-		chunk.state = 'written';
+		chunk.state = 'received';
 	    }
 	    if (data.length <= 0) {
 		this.mergeChunks();

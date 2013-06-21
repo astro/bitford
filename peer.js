@@ -166,8 +166,11 @@ Peer.prototype = {
     },
 
     onPiece: function(piece, offset, data) {
-	console.log(this.ip, "piece", piece, ":", offset, "+", data.length);
-	this.torrent.store.write(piece, offset, data);
+	// console.log(this.ip, "piece", piece, ":", offset, "+", data.length);
+	this.sock.pause();
+	this.torrent.store.write(piece, offset, data, function() {
+	    this.sock.resume();
+	}.bind(this));
     },
 
     getDonePercent: function() {

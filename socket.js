@@ -39,6 +39,8 @@ function connectTCP(host, port, cb) {
 function TCPSocket(sockId) {
     this.sockId = sockId;
     this.writesPending = 0;
+    this.paused = false;
+    this.readPending = false;
 }
 
 TCPSocket.prototype = {
@@ -51,8 +53,21 @@ TCPSocket.prototype = {
 	});
     },
 
+    pause: function() {
+	this.paused = true;
+    },
+
+    resume: function() {
+	this.paused = false;
+	this.read();
+    },
+
     read: function() {
+	if (this.paused || this.readPending)
+	    return;
+	this.readPending = true;
 	Socket.read(this.sockId, function(readInfo) {
+	    this.readPending = false;
 	    if (readInfo.resultCode < 0)
 		return this.end();
 	    if (readInfo.data && this.onData) {
@@ -63,6 +78,7 @@ TCPSocket.prototype = {
 	    }
 	}.bind(this));
     },
+
     write: function(data) {
 	Socket.write(this.sockId, data.buffer, function(writeInfo) {
 	    this.writesPending--;
@@ -71,6 +87,7 @@ TCPSocket.prototype = {
 	}.bind(this));
 	this.writesPending++;
     },
+
     end: function() {
 	if (!this.sockId)
 	    return;
