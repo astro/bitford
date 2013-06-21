@@ -181,19 +181,29 @@ StorePiece.prototype = {
     state: 'missing',
 
     nextToDownload: function(peer) {
-	var result;
+	var result, requestedChunks = [];
 	for(var i = 0; i < this.chunks.length && (!result || result.length < CHUNK_LENGTH); i++) {
 	    var chunk = this.chunks[i];
 	    if (result || chunk.state === 'missing') {
 		chunk.state = 'requested';
+		chunk.peer = peer;
 		if (!result)
 		    result = {
 			offset: chunk.offset,
 			length: 0
 		    };
 		result.length += chunk.length;
+		requestedChunks.push(chunk);
 	    }
 	}
+	if (result)
+	    result.cancel = function() {
+		requestedChunks.forEach(function(chunk) {
+		    chunk.peer = null;
+		    if (chunk.state == 'requested')
+			chunk.state = 'missing';
+		});
+	    };
 	return result;
     },
 
@@ -243,7 +253,7 @@ StorePiece.prototype = {
 	    var start = this.sha1pos - chunk.offset;
 	    if (start >= 0 && start < chunk.length) {
 		var len = chunk.length - start;
-		console.log("continueHashing", this.store.pieces.indexOf(this), chunk.offset + start, len);
+		// console.log("continueHashing", this.store.pieces.indexOf(this), chunk.offset + start, len);
 		var offset = chunk.offset + start;
 		(function(offset) {
 		     this.read(offset, len, function(data) {
@@ -331,8 +341,9 @@ StorePiece.prototype = {
 			 };
 		     });
 		 }.bind(this))(chunk, bufs);
-		data.take(length);
+		chunk.peer = null;
 		chunk.state = 'received';
+		data.take(length);
 	    }
 	}
 	if (data.length > 0)

@@ -1,4 +1,4 @@
-var MAX_REQS_INFLIGHT = 10;
+var MAX_REQS_INFLIGHT = 4;
 
 function Peer(torrent, info) {
     this.torrent = torrent;
@@ -32,6 +32,7 @@ Peer.prototype = {
 		sock.onEnd = function() {
 		    delete this.sock;
 		    this.state = 'disconnected';
+		    this.cancelAll();
 		}.bind(this);
 		sock.onData = this.onData.bind(this);
 		this.sendHandshake();
@@ -123,6 +124,7 @@ Peer.prototype = {
 	    case 0:
 		/* Choke */
 		this.choked = true;
+		this.cancelAll();
 		break;
 	    case 1:
 		/* Unchoke */
@@ -157,11 +159,7 @@ Peer.prototype = {
 		/* Piece */
 		piece = data.getWord32BE(1);
 		var offset = data.getWord32BE(5);
-		this.requestedChunks = this.requestedChunks.filter(function(chunk) {
-		    return chunk.piece !== piece || chunk.offset !== offset;
-		});
 		this.onPiece(piece, offset, data.getBufferList(9));
-		this.canRequest();
 		break;
 	    case 8:
 		/* Cancel */
@@ -171,9 +169,34 @@ Peer.prototype = {
 
     onPiece: function(piece, offset, data) {
 	this.sock.pause();
-	this.torrent.store.write(piece, offset, data, function() {
+
+	/* Find requestedChunk */
+	for(var i = 0; i < this.requestedChunks.length; i++) {
+	    var chunk = this.requestedChunks[i];
+	    if (chunk.piece === piece &&
+		chunk.offset === offset &&
+		chunk.length === data.length)
+
+		break;
+	}
+	if (i < this.requestedChunks.length) {
+	    var chunk = this.requestedChunks.splice(i, 1)[0];
+	    console.log("onPIece", piece, offset);
+	    if (chunk.timeout) {
+		clearTimeout(chunk.timeout);
+		chunk.timeout = null;
+	    }
+
+	    /* Write & resume */
+	    this.torrent.store.write(piece, offset, data, function() {
+		this.sock.resume();
+		this.canRequest();
+	    }.bind(this));
+	} else {
+	    console.warn("Received unexpected piece", piece, offset, data.length);
 	    this.sock.resume();
-	}.bind(this));
+	    this.canRequest();
+	}
     },
 
     getDonePercent: function() {
@@ -210,21 +233,53 @@ Peer.prototype = {
 	// TODO: We'll need to send not interested as our pieces complete
     },
 
+    cancelAll: function() {
+	this.requestedChunks.forEach(function(chunk) {
+	    chunk.cancel();
+	    if (chunk.timeout) {
+		clearTimeout(chunk.timeout);
+		chunk.timeout = null;
+	    }
+	});
+	this.requestedChunks = [];
+    },
+
     canRequest: function() {
 	while(!this.choked && this.requestedChunks.length < MAX_REQS_INFLIGHT) {
 	    var chunk = this.torrent.store.nextToDownload(this);
-	    if (!chunk)
+	    if (chunk)
+		this.request(chunk);
+	    else
 		break;
+	}
+    },
 
-	    this.sendLength(13);
-	    var piece = chunk.piece, offset = chunk.offset, length = chunk.length;
+    request: function(chunk) {
+	this.sendLength(13);
+	var piece = chunk.piece, offset = chunk.offset, length = chunk.length;
+	/* Piece request */
+	this.sock.write(new Uint8Array([
+	    6,
+	    (piece >> 24) & 0xff, (piece >> 16) & 0xff, (piece >> 8) & 0xff, piece & 0xff,
+	    (offset >> 24) & 0xff, (offset >> 16) & 0xff, (offset >> 8) & 0xff, offset & 0xff,
+	    (length >> 24) & 0xff, (length >> 16) & 0xff, (length >> 8) & 0xff, length & 0xff
+	]));
+
+	chunk.timeout = setTimeout(function() {
+	    console.log(this.ip, "chunk timeout", chunk.piece, ":", chunk.offset);
+	    chunk.timeout = null;
+	    /* Cancel */
 	    this.sock.write(new Uint8Array([
-		6,
+		8,
 		(piece >> 24) & 0xff, (piece >> 16) & 0xff, (piece >> 8) & 0xff, piece & 0xff,
 		(offset >> 24) & 0xff, (offset >> 16) & 0xff, (offset >> 8) & 0xff, offset & 0xff,
 		(length >> 24) & 0xff, (length >> 16) & 0xff, (length >> 8) & 0xff, length & 0xff
 	    ]));
-	    this.requestedChunks.push(chunk);
-	}
+	    /* Give some time to still come in */
+	    setTimeout(function() {
+		chunk.cancel();
+	    }, 5000);
+	}.bind(this), 5000);
+	this.requestedChunks.push(chunk);
     }
 };
