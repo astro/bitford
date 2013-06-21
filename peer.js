@@ -169,17 +169,8 @@ Peer.prototype = {
     onPiece: function(piece, offset, data) {
 	this.sock.pause();
 
-	/* Find requestedChunk */
-	for(var i = 0; i < this.requestedChunks.length; i++) {
-	    var chunk = this.requestedChunks[i];
-	    if (chunk.piece === piece &&
-		chunk.offset === offset &&
-		chunk.length === data.length)
-
-		break;
-	}
-	if (i < this.requestedChunks.length) {
-	    var chunk = this.requestedChunks.splice(i, 1)[0];
+	var chunk = this.removeRequestedChunk(piece, offset, data.length);
+	if (chunk) {
 	    var delay = Date.now() - chunk.sendTime;
 	    if (!this.minDelay)
 		this.minDelay = delay;
@@ -253,6 +244,21 @@ Peer.prototype = {
 	this.requestedChunks = [];
     },
 
+    removeRequestedChunk: function(piece, offset, length) {
+	for(var i = 0; i < this.requestedChunks.length; i++) {
+	    var chunk = this.requestedChunks[i];
+	    if (chunk.piece === piece &&
+		chunk.offset === offset &&
+		chunk.length === length)
+
+		break;
+	}
+	if (i < this.requestedChunks.length)
+	    return this.requestedChunks.splice(i, 1)[0];
+	else
+	    return null;
+    },
+
     canRequest: function() {
 	while(!this.choked && this.requestedChunks.length < this.inflightThreshold) {
 	    var chunk = this.torrent.store.nextToDownload(this);
@@ -288,9 +294,10 @@ Peer.prototype = {
 	    ]));
 	    /* Give some time to still come in */
 	    setTimeout(function() {
+		this.removeRequestedChunk(piece, offset, length);
 		chunk.cancel();
-	    }, delay);
-	}.bind(this), 2 * delay);
+	    }.bind(this), 2 * delay);
+	}.bind(this), 3 * delay);
 	this.requestedChunks.push(chunk);
     }
 };
