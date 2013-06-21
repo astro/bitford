@@ -24,8 +24,10 @@
 
     <section ng-controller="TorrentsController">
       <ul ng-repeat="torrent in torrents">
-	<li>
+	<li style="clear: left">
 	  <p>{{torrent.name}} ({{torrent.store.getDonePercent()}}%)</p>
+	  <canvas pieces-canvas with="128" height="512" style="float: left">
+	  </canvas>
 	  <ul ng-repeat="peer in torrent.peers">
 	    <li>
 	      {{peer.ip}}:{{peer.port}}

@@ -1,5 +1,4 @@
 var MAX_REQS_INFLIGHT = 10;
-var REQ_LENGTH = Math.pow(2, 15);
 
 function Peer(torrent, info) {
     this.torrent = torrent;
@@ -104,7 +103,12 @@ Peer.prototype = {
 		this.messageSize = this.buffer.getWord32BE(0);
 		this.buffer.take(4);
 	    } else if (this.state === 'connected' && this.messageSize && this.buffer.length >= this.messageSize) {
-		this.handleMessage(this.buffer.getBufferList(0, this.messageSize));
+		var msgData = this.buffer.getBufferList(0, this.messageSize);
+		try {
+		    this.handleMessage(msgData);
+		} catch (e) {
+		    console.error("Error handling message", e.stack || e, msgData);
+		}
 		this.buffer.take(this.messageSize);
 		this.messageSize = null;
 	    } else
@@ -136,7 +140,7 @@ Peer.prototype = {
 	    case 4:
 		/* Have */
 		piece = data.getWord32BE(1);
-		if (this.bitfield.length >= Math.floor(piece / 8)) {
+		if (this.bitfield && this.bitfield.length >= Math.floor(piece / 8)) {
 		    this.bitfield[Math.floor(piece / 8)] |= 1 << (7 - (piece % 8));
 		    this.onUpdateBitfield();
 		}
@@ -166,7 +170,6 @@ Peer.prototype = {
     },
 
     onPiece: function(piece, offset, data) {
-	// console.log(this.ip, "piece", piece, ":", offset, "+", data.length);
 	this.sock.pause();
 	this.torrent.store.write(piece, offset, data, function() {
 	    this.sock.resume();
@@ -209,7 +212,7 @@ Peer.prototype = {
 
     canRequest: function() {
 	while(!this.choked && this.requestedChunks.length < MAX_REQS_INFLIGHT) {
-	    var chunk = this.torrent.store.nextToDownload(this, REQ_LENGTH);
+	    var chunk = this.torrent.store.nextToDownload(this);
 	    if (!chunk)
 		break;
 

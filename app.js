@@ -39,6 +39,64 @@ app.controller('LoadController', function($scope, Torrents) {
     };
 });
 
+app.directive('piecesCanvas', function() {
+    return {
+	restrict: 'A',
+	link: function($scope, element, attrs) {
+	    function draw() {
+		var canvas = element[0];
+		var ctx = canvas.getContext('2d');
+		ctx.fillStyle = "white";
+		ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+		var pieceLength = $scope.torrent.store.pieceLength;
+		var pieces = $scope.torrent.store.pieces;
+		if (!pieces)
+		    return;
+
+		for(var y = 0; y < pieces.length; y++) {
+		    var y1 = canvas.height * y / pieces.length;
+		    var y2 = canvas.height * (y + 1) / pieces.length;
+		    pieces[y].chunks.forEach(function(chunk) {
+			var x1 = canvas.width * chunk.offset / pieceLength;
+			var x2 = canvas.width * (chunk.offset + chunk.length) / pieceLength;
+			switch(chunk.state) {
+			    case 'missing':
+				ctx.fillStyle = "#ccc";
+				break;
+			    case 'requested':
+				ctx.fillStyle = "red";
+				break;
+			    case 'received':
+				ctx.fillStyle = "yellow";
+				break;
+			    case 'written':
+				ctx.fillStyle = "blue";
+				break;
+			    case 'valid':
+				ctx.fillStyle = "green";
+				//ctx.fillStyle = "linear-gradient(to bottom, #7f7 0%, #0f0 100%)";
+				break;
+			    default:
+				ctx.fillStyle = "black";
+			}
+			ctx.fillRect(x1, y1, x2, y2);
+		    });
+		    var xp = canvas.width * pieces[y].sha1pos / pieceLength;
+		    ctx.beginPath();
+		    ctx.moveTo(xp, y1);
+		    ctx.lineTo(xp, y2);
+		    ctx.strokeStyle = 'black';
+		    ctx.stroke();
+		}
+
+		setTimeout(draw, 100);
+	    }
+	    draw();
+        }
+    };
+});
+
 app.controller('TorrentsController', function($scope, Torrents) {
     $scope.torrents = Torrents;
     function tick() {
