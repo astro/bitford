@@ -57,7 +57,9 @@ TCPSocket.prototype = {
 		return this.end();
 	    if (readInfo.data && this.onData) {
 		this.onData(readInfo.data);
-		this.read();
+		/* onData() could have closed it */
+		if (this.sockId)
+		    this.read();
 	    }
 	}.bind(this));
     },

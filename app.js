@@ -41,7 +41,11 @@ app.controller('LoadController', function($scope, Torrents) {
 
 app.controller('TorrentsController', function($scope, Torrents) {
     $scope.torrents = Torrents;
-    setInterval(function() {
-	$scope.$apply(function() { });
-    }, 100);
+    function tick() {
+	setTimeout(function() {
+	    $scope.$apply(function() { });
+	    tick();
+	}, 100);
+    }
+    tick();
 });

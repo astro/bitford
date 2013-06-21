@@ -1,8 +1,11 @@
 ## Roadmap
 
-* Tracker req
+* peers6
 * Storage
-* Client connection
+* Hashing
+* Tracker stats
+* Priorities & shaping
+* Seeding
 
 ## Unsolved
 
@@ -11,6 +14,10 @@
 ## Torrent Features
 
 * Peer limits
+  * Connect rate
+  * by IP
+  * Upload slots
+* Game over: work stealing
 * Throttling
 * UDP trackers
 

@@ -159,7 +159,7 @@ function Peer(torrent, info) {
     this.ip = info.ip;
     this.port = info.port;
     this.direction = 'outgoing';
-
+    this.buffer = new BufferList();
     this.requestedChunks = [];
     // We in them
     this.interesting = false;
@@ -231,63 +231,44 @@ Peer.prototype = {
     },
 
     onData: function(data) {
-	if (this.buffer) {
-	    concatArrays([this.buffer, data], function(data) {
-		this.buffer = null;
-		this.processData(data);
-	    }.bind(this));
-	} else
-	    this.processData(new Uint8Array(data));
-    },
+	this.buffer.append(data);
 
-    processData: function(data) {
-	// console.log(this.ip, "processData", data);
 	var fail = function(msg) {
 	    this.sock.end();
-	    this.state = "error";
+	    this.state = 'error';
 	    this.error = msg;
 	}.bind(this);
-
-	if (this.state === 'handshake' && data.length >= 20 + 8 + 20 + 20) {
-	    if (data[0] != 19 ||
-		UTF8ArrToStr(new Uint8Array(data.subarray(1, 20))) != "BitTorrent protocol") {
-		return fail("Handshake mismatch");
-	    }
-	    var infoHash = new Uint8Array(data.subarray(20 + 8, 20 + 8 + 20));
-	    for(var i = 0; i < 20; i++) {
-		if (infoHash[i] != this.torrent.infoHash[i])
-		    return fail("InfoHash mismatch");
-	    }
-	    this.peerId = data.subarray(20 + 8 + 20, 20 + 8 + 20 + 20);
-	    this.sendBitfield();
-	    this.state = 'connected';
-	    this.buffer = new Uint8Array(data.subarray(20 + 8 + 20 + 20));
-	} else if (this.state === 'connected' && data.length >= 4) {
-	    var len = data[0] << 24 |
-		data[1] << 16 |
-		data[2] << 8 |
-		data[3];
-	    if (data.length >= 4 + len) {
-		this.handleMessage(new Uint8Array(data.subarray(4, 4 + len)));
-		this.buffer = new Uint8Array(data.subarray(4 + len));
-	    } else {
-		this.buffer = data;
-	    }
-	} else {
-	    this.buffer = data;
-	}
-
-	if (this.buffer && this.buffer.length !== data.length) {
-	    var buffer = this.buffer;
-	    this.buffer = null;
-	    this.processData(buffer);
-	}
+	var done = false;
+	do {
+	    if (this.state === 'handshake' && this.buffer.length >= 20 + 8 + 20 + 20) {
+		if (this.buffer.getByte(0) != 19 ||
+		    UTF8ArrToStr(new Uint8Array(this.buffer.slice(1, 20))) != "BitTorrent protocol") {
+		    return fail("Handshake mismatch");
+		}
+		for(var i = 0; i < 20; i++) {
+		    if (this.buffer.getByte(20 + 8 + i) != this.torrent.infoHash[i])
+			return fail("InfoHash mismatch");
+		}
+		this.peerId = this.buffer.slice(20 + 8 + 20, 20 + 8 + 20 + 20);
+		this.sendBitfield();
+		this.state = 'connected';
+		this.buffer.take(20 + 8 + 20 + 20);
+	    } else if (this.state === 'connected' && !this.messageSize && this.buffer.length >= 4) {
+		this.messageSize = this.buffer.getWord32BE(0);
+		this.buffer.take(4);
+	    } else if (this.state === 'connected' && this.messageSize && this.buffer.length >= this.messageSize) {
+		this.handleMessage(this.buffer.getBufferList(0, this.messageSize));
+		this.buffer.take(this.messageSize);
+		this.messageSize = null;
+	    } else
+		done = true;
+	} while(!done);
     },
 
     handleMessage: function(data) {
-	// console.log(this.ip, "handleMessage", data[0], data);
+	console.log(this.ip, "handleMessage", data.getByte(0), data.length);
 	var piece;
-	switch(data[0]) {
+	switch(data.getByte(0)) {
 	    case 0:
 		/* Choke */
 		this.choked = true;
@@ -307,10 +288,7 @@ Peer.prototype = {
 		break;
 	    case 4:
 		/* Have */
-		piece = data[4] << 24 |
-		    data[3] << 16 |
-		    data[2] << 8 |
-		    data[1];
+		piece = data.getWord32BE(1);
 		if (this.bitfield.length >= Math.floor(piece / 8)) {
 		    this.bitfield[Math.floor(piece / 8)] |= 1 << (7 - (piece % 8));
 		    this.onUpdateBitfield();
@@ -318,7 +296,7 @@ Peer.prototype = {
 		break;
 	    case 5:
 		/* Bitfield */
-		this.bitfield = new Uint8Array(data.subarray(1));
+		this.bitfield = new Uint8Array(data.slice(1));
 		this.onUpdateBitfield();
 		break;
 	    case 6:
@@ -326,19 +304,12 @@ Peer.prototype = {
 		break;
 	    case 7:
 		/* Piece */
-		piece = data[1] << 24 |
-			data[2] << 16 |
-			data[3] << 8 |
-			data[4];
-		var offset = data[5] << 24 |
-			data[6] << 16 |
-			data[7] << 8 |
-			data[8];
-		this.onPiece(piece, offset, data.subarray(9));
+		piece = data.getWord32BE(1);
+		var offset = data.getWord32BE(5);
 		this.requestedChunks = this.requestedChunks.filter(function(chunk) {
 		    return chunk.piece !== piece || chunk.offset !== offset;
 		});
-		console.log("Can request again");
+		this.onPiece(piece, offset, data.getBufferList(9));
 		this.canRequest();
 		break;
 	    case 8:
@@ -348,6 +319,7 @@ Peer.prototype = {
     },
 
     onPiece: function(piece, offset, data) {
+	console.log(this.ip, "piece", piece, ":", offset, "+", data.length);
 	this.torrent.store.write(piece, offset, data);
     },
 
@@ -358,9 +330,12 @@ Peer.prototype = {
 	var present = 0;
 	for(var i = 0; i < this.bitfield.length; i++) {
 	    var b = this.bitfield[i];
-	    for(var j = 0; j < 8; j++)
-		if (b & (1 << j))
-		    present++;
+	    if (b == 0xFF)
+		present += 8;
+	    else
+		for(var j = 0; j < 8; j++)
+		    if (b & (1 << j))
+			present++;
 	}
 	return Math.floor(100 * Math.max(1, present / this.torrent.pieces));
     },
@@ -401,15 +376,6 @@ Peer.prototype = {
     }
 };
 
-function concatArrays(arrays, cb) {
-    var blob = new Blob(arrays);
-    var reader = new FileReader();
-    reader.onload = function() {
-	cb(new Uint8Array(reader.result));
-    };
-    reader.readAsArrayBuffer(blob);
-}
-
 var requestFileSystem_ = window.requestFileSystem ||
     window.webkitRequestFileSystem;
 var PersistentStorage_ = navigator.PersistentStorage ||
@@ -442,7 +408,6 @@ function Store(files, pieceLength) {
 		fileOffset = 0;
 	    }
 	}
-	console.log("piece", this.pieces.length, chunks);
 	this.pieces.push(new StorePiece(chunks));
     }
 
@@ -474,7 +439,6 @@ Store.prototype = {
     },
 
     write: function(piece, offset, data) {
-	console.log("onPiece", piece, offset, data.byteLength);
 	if (piece < this.pieces.length)
 	    this.pieces[piece].write(offset, data);
     }
@@ -586,10 +550,10 @@ StorePiece.prototype = {
 	    var skip = Math.min(offset, chunk.length);
 	    offset -= skip;
 	    if (offset <= 0) {
-		var length = Math.min(data.byteLength, chunk.length);
-		var buf = data.subarray(0, length);
+		var length = Math.min(data.length, chunk.length);
+		//var buf = data.slice(0, length);
 		console.log("write", chunk, length);
-		data = data.subarray(length);
+		data.take(length);
 
 		if (chunk.length > length) {
 		    this.chunks.push({
@@ -603,7 +567,7 @@ StorePiece.prototype = {
 		}
 		chunk.state = 'written';
 	    }
-	    if (data.byteLength <= 0) {
+	    if (data.length <= 0) {
 		this.mergeChunks();
 		break;
 	    }
