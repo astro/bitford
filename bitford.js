@@ -76,7 +76,20 @@ TrackerGroup.prototype = {
 		    this.torrent.addPeer({ ip: ip, port: port });
 		}
 	    }
-	    // TODO: IPv6
+
+	    var peers6 = response && response.peers6;
+	    if (peers6 && peers6.prototype && peers6.prototype.constructor === Array) {
+		/* Non-compact IPv6 */
+		peers6.forEach(this.torrent.addPeer.bind(torrent));
+	    }
+	    if (peers6 && peers6.__proto__ && peers6.__proto__.constructor === Uint8Array) {
+		/* Compact IPv6 */
+		for(var i = 0; i < peers6.length; i += 18) {
+		    var ip = [0, 1, 2, 3, 4, 5, 6, 7, 8].map(function(j) { return (peers6[i + j * 2] << 8 | peers6[i + j * 2 + 1]).toString(16); }).join(":");
+		    var port = (peers[i + 16] << 8) | peers[i + 17];
+		    this.torrent.addPeer({ ip: ip, port: port });
+		}
+	    }
 
 	    var interval = (response.interval || 30 + 30 * Math.random()) * 1000;
 	    setTimeout(this.start.bind(this), Math.ceil(interval));
