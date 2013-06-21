@@ -7,10 +7,10 @@
     reader.readAsArrayBuffer(blob);
 }*/
 
-function BufferList() {
+function BufferList(arrays) {
     this.offset = 0;  // into buffers
     this.length = 0;  // excl. offset
-    this.buffers = [];
+    this.buffers = arrays || [];;
 }
 BufferList.prototype = {
     append: function(b) {

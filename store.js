@@ -224,11 +224,9 @@ StorePiece.prototype = {
 		    bufs[i] = data;
 		pending--;
 		if (pending < 1) {
-		    var b = new BufferList();
-		    bufs.forEach(function(buf) {
-			if (buf)
-			    b.append(buf);
-		    });
+		    var b = new BufferList(bufs.filter(function(buf) {
+			return !!buf;
+		    }));
 		    callback(b);
 		}
 	    };
