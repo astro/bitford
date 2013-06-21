@@ -1,6 +1,5 @@
 ## Roadmap
 
-* Fix finishing
 * request only on drain
 * rm from requestedChunks
 * Tracker stats

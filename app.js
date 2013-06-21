@@ -84,12 +84,6 @@ app.directive('piecesCanvas', function() {
 			}
 			ctx.fillRect(x1, y1, x2, y2);
 		    });
-		    var xp = canvas.width * pieces[y].sha1pos / pieceLength;
-		    ctx.beginPath();
-		    ctx.moveTo(xp, y1);
-		    ctx.lineTo(xp, y2);
-		    ctx.strokeStyle = 'black';
-		    ctx.stroke();
 		}
 
 		setTimeout(draw, 500);

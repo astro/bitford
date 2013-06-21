@@ -221,33 +221,43 @@ StorePiece.prototype = {
 	    sha1.update(buf);
 	    this.sha1pos += buf.byteLength;
 	}.bind(this));
-	if (this.sha1pos >= this.store.pieceLength) {
+
+	var chunk;
+	for(var i = 0; i < this.chunks.length; i++) {
+	    chunk = this.chunks[i];
+	    if (chunk.offset + chunk.length > this.sha1pos) {
+		/* Found a piece that follows */
+		break;
+	    } else if (chunk.offset + chunk.length <= this.sha1pos) {
+		chunk.state = 'valid';
+	    }
+	}
+	if (i >= this.chunks.length) {
+	    /* No piece followed, validate hash */
 	    var hash = new Uint8Array(this.sha1.finalize());
 	    this.sha1 = null;
 
 	    var valid = true;
 	    for(var i = 0; i < 20; i++)
 		valid = valid && (hash[i] === this.expectedHash[i]);
+	    this.valid = valid;
 	    if (!valid) {
 		console.warn("Invalid piece", hash, "<>", this.expectedHash);
 		this.sha1pos = 0;
+		for(i = 0; i < this.chunks.length; i++) {
+		    var chunk = this.chunks[i];
+		    if (chunk.state == 'valid')
+			chunk.state = 'missing';
+		}
 	    }
-	    this.valid = valid;
-	    var newState = valid ? 'valid' : 'missing';
-	    for(i = 0; i < this.chunks.length; i++) {
-		var chunk = this.chunks[i];
-		if (chunk.state == 'written')
-		    chunk.state = newState;
-	    }
-	}
-
-	this.continueHashing();
+	} else
+	    this.continueHashing();
     },
 
     continueHashing: function() {
 	for(var i = 0;
 	    i < this.chunks.length &&
-	    this.chunks[i].state == 'written' &&
+	    (this.chunks[i].state == 'written' || this.chunks[i].state == 'valid') &&
 	    this.chunks[i].offset <= this.sha1pos;
 	    i++) {
 
@@ -255,7 +265,6 @@ StorePiece.prototype = {
 	    var start = this.sha1pos - chunk.offset;
 	    if (start >= 0 && start < chunk.length) {
 		var len = chunk.length - start;
-		// console.log("continueHashing", this.store.pieces.indexOf(this), chunk.offset + start, len);
 		var offset = chunk.offset + start;
 		(function(offset) {
 		     this.read(offset, len, function(data) {
@@ -328,23 +337,25 @@ StorePiece.prototype = {
 	    } else if (offset == 0) {
 		var length = Math.min(data.length, chunk.length);
 		var bufs = data.getBuffers(0, length);
-		(function(chunk, bufs) {
-		     this.store.withFile(chunk.path, 'write', function(writer, releaseFile) {
-		         writer.seek(chunk.fileOffset);
-		         writer.write(new Blob(bufs));
-		         writer.onwriteend = function() {
-			     writer.onwriteend = null;
-			     releaseFile();
+		if (chunk.state !== 'valid') {
+		    (function(chunk, bufs) {
+			 this.store.withFile(chunk.path, 'write', function(writer, releaseFile) {
+			     writer.seek(chunk.fileOffset);
+			     writer.write(new Blob(bufs));
+			     writer.onwriteend = function() {
+				 writer.onwriteend = null;
+				 releaseFile();
 
-			     chunk.state = 'written';
-			     canHash(chunk.offset, bufs);
+				 chunk.state = 'written';
+				 canHash(chunk.offset, bufs);
 
-			     cb();
-			 };
-		     });
-		 }.bind(this))(chunk, bufs);
-		chunk.peer = null;
-		chunk.state = 'received';
+				 cb();
+			     };
+			 });
+		     }.bind(this))(chunk, bufs);
+		    chunk.peer = null;
+		    chunk.state = 'received';
+		}
 		data.take(length);
 	    }
 	}
