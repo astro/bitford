@@ -3,7 +3,7 @@ var requestFileSystem_ = window.requestFileSystem ||
 var PersistentStorage_ = navigator.PersistentStorage ||
     navigator.webkitPersistentStorage;
 
-function Store(files, pieceLength) {
+function Store(files, pieceHashes, pieceLength) {
     this.size = 0;
     files.forEach(function(file) {
 	this.size += file.size;
@@ -30,17 +30,25 @@ function Store(files, pieceLength) {
 		fileOffset = 0;
 	    }
 	}
-	this.pieces.push(new StorePiece(this, chunks));
+	this.pieces.push(new StorePiece(this, chunks, pieceHashes[this.pieces.length]));
     }
     this.fileQueues = {};
 
     /* TODO: start hashing */
 }
 Store.prototype = {
+    fileQueuesSize: function() {
+	var total = 0;
+	for(var id in this.fileQueues)
+	    if (this.fileQueues.hasOwnProperty(id))
+		total += this.fileQueues[id].length;
+	return total;
+    },
+
     isInterestedIn: function(peer) {
 	for(var i = 0; i < this.pieces.length; i++) {
 	    var piece = this.pieces[i];
-	    if (piece.state !== 'complete' && peer.has(i))
+	    if (piece.state !== 'valid' && peer.has(i))
 		return true;
 	}
 	return false;
@@ -49,16 +57,25 @@ Store.prototype = {
     nextToDownload: function(peer, chunkLength) {
 	for(var i = 0; i < this.pieces.length; i++) {
 	    var piece = this.pieces[i];
-	    var chunk = piece.state !== 'complete' &&
+	    var chunk = piece.state !== 'valid' &&
 		peer.has(i) &&
 		piece.nextToDownload(peer, chunkLength);
 	    if (chunk) {
 		chunk.piece = i;
-		console.log("nextToDownload", chunk);
+		// console.log("nextToDownload", chunk);
 		return chunk;
 	    }
 	}
 	return null;
+    },
+
+    getDonePercent: function() {
+	var done = 0;
+	for(var i = 0; i < this.pieces.length; i++) {
+	    if (this.pieces[i].valid)
+		done++;
+	}
+	return Math.floor(100 * done / this.pieces.length);
     },
 
     write: function(piece, offset, data, cb) {
@@ -101,11 +118,10 @@ Store.prototype = {
 	} else {
 	    fileQueues[id] = [item];
 	    this.withFileEntry(parts, function(entry) {
-		console.log("fileEntry", id, entry.fullPath, entry.toURL());
+		// console.log("fileEntry", id, entry.fullPath, entry.toURL());
 		var readFile, writer;
 		function workQueue() {
 		    var item = fileQueues[id].shift();
-		    console.log("workQueue", item);
 		    if (!item) {
 			delete fileQueues[id];
 		    } else if (item.type === 'read') {
@@ -136,13 +152,15 @@ Store.prototype = {
     }
 };
 
-function StorePiece(piece, chunks) {
-    this.piece = piece;
+function StorePiece(store, chunks, expectedHash) {
+    this.store = store;
     this.chunks = chunks.map(function(chunk) {
 	// chunk.state = 'unchecked';
 	chunk.state = 'missing';
 	return chunk;
     });
+    this.expectedHash = expectedHash;
+    this.sha1pos = 0;
 }
 StorePiece.prototype = {
     state: 'missing',
@@ -211,6 +229,60 @@ StorePiece.prototype = {
 	return result;
     },
 
+    canHash: function(offset, bufs) {
+	if (offset > this.sha1pos)
+	    return;
+	else if (offset < this.sha1pos) {
+	    bufs = new BufferList(bufs).getBuffers(this.sha1pos - offset);
+	}
+	console.log("canHash", this.store.pieces.indexOf(this), offset, "/", this.store.pieceLength, "sha1pos:", this.sha1pos, this.chunks);
+	if (!this.sha1)
+	    this.sha1 = new Digest.SHA1();
+	var sha1 = this.sha1;
+	bufs.forEach(function(buf) {
+	    sha1.update(buf);
+	    this.sha1pos += buf.byteLength;
+	}.bind(this));
+	if (this.sha1pos >= this.store.pieceLength) {
+	    var hash = new Uint8Array(this.sha1.finalize());
+	    delete this.sha1;
+
+	    var valid = true;
+	    for(var i = 0; i < 20; i++)
+		valid = valid && (hash[i] === this.expectedHash[i]);
+	    if (!valid)
+		console.warn("Invalid piece", hash, "<>", this.expectedHash);
+	    this.valid = valid;
+	    var newState = valid ? 'valid' : 'missing';
+	    for(i = 0; i < this.chunks.length; i++) {
+		var chunk = this.chunks[i];
+		if (chunk.state == 'written')
+		    chunk.state = newState;
+	    }
+	}
+
+	this.continueHashing();
+    },
+
+    continueHashing: function() {
+	for(var i = 0;
+	    i < this.chunks.length &&
+	    this.chunks[i].state == 'written' &&
+	    this.chunks[i].offset <= this.sha1pos;
+	    i++) {
+
+	    var chunk = this.chunks[i];
+	    var start = this.sha1pos - chunk.offset;
+	    if (start > 0 && start < chunk.length) {
+		var l = chunk.length - start;
+		this.read(chunk.offset + start, l, function(data) {
+		    this.canHash(chunk.offset + start, [data]);
+		}.bind(this));
+		break;
+	    }
+	}
+    },
+
     read: function(offset, length, callback) {
 	if (length == 0)
 	    callback();
@@ -237,7 +309,7 @@ StorePiece.prototype = {
 		offset -= chunk.length;
 	    } else if (l > 0) {
 		var l = Math.min(chunk.length, length);
-		this.piece.withFile(chunk.path, 'read', function(file) {
+		this.store.withFile(chunk.path, 'read', function(file) {
 		    var reader = new FileReader();
 		    var cb = onRead();
 		    reader.onloadend = function() {
@@ -263,6 +335,7 @@ StorePiece.prototype = {
 	    if (offset <= 0) {
 		var length = Math.min(data.length, chunk.length);
 		var bufs = data.getBuffers(0, length);
+		var canHash = this.canHash.bind(this);
 		var blob = new Blob(bufs);
 		this.store.withFile(chunk.path, 'write', function(writer, releaseFile) {
 		    // console.log("write", chunk, length);
@@ -273,6 +346,7 @@ StorePiece.prototype = {
 			releaseFile();
 
 			chunk.state = 'written';
+			canHash(chunk.offset, bufs);
 
 			cb();
 		    };

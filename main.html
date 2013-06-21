@@ -25,7 +25,7 @@
     <section ng-controller="TorrentsController">
       <ul ng-repeat="torrent in torrents">
 	<li>
-	  <p>{{torrent.name}}</p>
+	  <p>{{torrent.name}} ({{torrent.store.getDonePercent()}}%)</p>
 	  <ul ng-repeat="peer in torrent.peers">
 	    <li>
 	      {{peer.ip}}:{{peer.port}}
@@ -44,6 +44,7 @@
 	      </span>
 	    </li>
 	  </ul>
+	  <p>{{torrent.store.fileQueuesSize()}} file I/Os queued</p>
 	</li>
       </ul>
     </section>

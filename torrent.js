@@ -10,17 +10,20 @@ function Torrent(meta) {
 	pieceLength = meta.info['piece length'];
     else
 	throw "Invalid torrent: no piece length";
+    var pieces = [];
+    for(var i = 0; i < meta.info.pieces.byteLength; i += 20)
+	pieces.push(new Uint8Array(meta.info.pieces.subarray(i, i + 20)));
 
     /* Init Storage */
     var name = UTF8ArrToStr(meta.info.name);
     if (typeof meta.info.length == 'number')
-	this.store = new Store([{ path: [name], size: meta.info.length }], pieceLength);
+	this.store = new Store([{ path: [name], size: meta.info.length }], pieces, pieceLength);
     else if (meta.info.files.__proto__.constructor == Array)
 	this.store = new Store(meta.info.files.map(function(file) {
 	    return { path: [name].concat(file.path.map(UTF8ArrToStr)),
 		     size: file.length
 		   };
-	}), pieceLength);
+	}), pieces, pieceLength);
     else
 	throw "Invalid torrent: no files";
 
