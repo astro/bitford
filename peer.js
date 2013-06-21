@@ -275,6 +275,7 @@ Peer.prototype = {
 	    (length >> 24) & 0xff, (length >> 16) & 0xff, (length >> 8) & 0xff, length & 0xff
 	]));
 
+	var delay = this.minDelay || 1000;
 	chunk.timeout = setTimeout(function() {
 	    console.log(this.ip, "chunk timeout", chunk.piece, ":", chunk.offset);
 	    chunk.timeout = null;
@@ -288,8 +289,8 @@ Peer.prototype = {
 	    /* Give some time to still come in */
 	    setTimeout(function() {
 		chunk.cancel();
-	    }, 5000);
-	}.bind(this), 5000);
+	    }, delay);
+	}.bind(this), 2 * delay);
 	this.requestedChunks.push(chunk);
     }
 };
