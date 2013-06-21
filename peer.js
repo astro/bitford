@@ -1,5 +1,3 @@
-var MAX_REQS_INFLIGHT = 4;
-
 function Peer(torrent, info) {
     this.torrent = torrent;
     this.ip = info.ip;
@@ -7,6 +5,7 @@ function Peer(torrent, info) {
     this.direction = 'outgoing';
     this.buffer = new BufferList();
     this.requestedChunks = [];
+    this.inflightThreshold = 2;
     // We in them
     this.interesting = false;
     this.choking = true;
@@ -181,7 +180,17 @@ Peer.prototype = {
 	}
 	if (i < this.requestedChunks.length) {
 	    var chunk = this.requestedChunks.splice(i, 1)[0];
-	    console.log("onPIece", piece, offset);
+	    var delay = Date.now() - chunk.sendTime;
+	    if (!this.minDelay)
+		this.minDelay = delay;
+	    else if (delay < this.minDelay) {
+		this.minDelay = 0.8 * this.minDelay + 0.2 * delay;
+		this.inflightThreshold++;
+	    } else {
+		this.minDelay = 0.95 * this.minDelay + 0.05 * delay;
+		if (delay > this.minDelay * 1.2 && this.inflightThreshold > 2)
+		    this.inflightThreshold--;
+	    }
 	    if (chunk.timeout) {
 		clearTimeout(chunk.timeout);
 		chunk.timeout = null;
@@ -245,7 +254,7 @@ Peer.prototype = {
     },
 
     canRequest: function() {
-	while(!this.choked && this.requestedChunks.length < MAX_REQS_INFLIGHT) {
+	while(!this.choked && this.requestedChunks.length < this.inflightThreshold) {
 	    var chunk = this.torrent.store.nextToDownload(this);
 	    if (chunk)
 		this.request(chunk);
@@ -258,6 +267,7 @@ Peer.prototype = {
 	this.sendLength(13);
 	var piece = chunk.piece, offset = chunk.offset, length = chunk.length;
 	/* Piece request */
+	chunk.sendTime = Date.now();
 	this.sock.write(new Uint8Array([
 	    6,
 	    (piece >> 24) & 0xff, (piece >> 16) & 0xff, (piece >> 8) & 0xff, piece & 0xff,
