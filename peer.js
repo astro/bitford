@@ -201,6 +201,8 @@ Peer.prototype = {
     },
 
     getDonePercent: function() {
+	if (this.donePercent)
+	    return this.donePercent;
 	if (!this.bitfield)
 	    return 0;
 
@@ -214,7 +216,8 @@ Peer.prototype = {
 		    if (b & (1 << j))
 			present++;
 	}
-	return Math.floor(100 * Math.max(1, present / this.torrent.pieces));
+	this.donePercent = Math.floor(100 * Math.max(1, present / this.torrent.pieces));
+	return this.donePercent;
     },
 
     has: function(pieceIdx) {
@@ -222,6 +225,8 @@ Peer.prototype = {
     },
 
     onUpdateBitfield: function() {
+	this.donePercent = null;
+
 	var interesting = this.torrent.store.isInterestedIn(this);
 	if (interesting && !this.interesting) {
 	    /* Change triggered */
