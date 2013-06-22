@@ -1,7 +1,5 @@
 ## Roadmap
 
-* request only on drain
-* rm from requestedChunks
 * Tracker stats
 * Priorities & shaping
 * Seeding

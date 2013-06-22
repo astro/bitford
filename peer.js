@@ -266,11 +266,7 @@ Peer.prototype = {
     },
 
     onDrain: function() {
-	try {
-	    this.canRequest();
-	} catch (e) {
-	    console.error(e.stack || e.message);
-	}
+	this.canRequest();
     },
 
     canRequest: function() {
