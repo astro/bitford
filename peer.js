@@ -287,10 +287,10 @@ Peer.prototype = {
     },
 
     request: function(chunk) {
-	this.sendLength(13);
 	var piece = chunk.piece, offset = chunk.offset, length = chunk.length;
 	/* Piece request */
 	chunk.sendTime = Date.now();
+	this.sendLength(13);
 	this.sock.write(new Uint8Array([
 	    6,
 	    (piece >> 24) & 0xff, (piece >> 16) & 0xff, (piece >> 8) & 0xff, piece & 0xff,
@@ -303,11 +303,12 @@ Peer.prototype = {
 	    console.log(this.ip, "chunk timeout", chunk.piece, ":", chunk.offset);
 	    chunk.timeout = null;
 	    /* Cancel */
+	    this.sendLength(13);
 	    this.sock.write(new Uint8Array([
-		8,
-		(piece >> 24) & 0xff, (piece >> 16) & 0xff, (piece >> 8) & 0xff, piece & 0xff,
-		(offset >> 24) & 0xff, (offset >> 16) & 0xff, (offset >> 8) & 0xff, offset & 0xff,
-		(length >> 24) & 0xff, (length >> 16) & 0xff, (length >> 8) & 0xff, length & 0xff
+	    	8,
+	    	(piece >> 24) & 0xff, (piece >> 16) & 0xff, (piece >> 8) & 0xff, piece & 0xff,
+	    	(offset >> 24) & 0xff, (offset >> 16) & 0xff, (offset >> 8) & 0xff, offset & 0xff,
+	    	(length >> 24) & 0xff, (length >> 16) & 0xff, (length >> 8) & 0xff, length & 0xff
 	    ]));
 	    /* Give some time to still come in */
 	    setTimeout(function() {
