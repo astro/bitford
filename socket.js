@@ -41,6 +41,7 @@ function TCPSocket(sockId) {
     this.writesPending = 0;
     this.paused = false;
     this.readPending = false;
+    this.drained = true;
 }
 
 TCPSocket.prototype = {
@@ -82,10 +83,15 @@ TCPSocket.prototype = {
     write: function(data) {
 	Socket.write(this.sockId, data.buffer, function(writeInfo) {
 	    this.writesPending--;
-	    if (this.onDrain)
-		this.onDrain();
+
+	    if (this.writesPending < 1) {
+		this.drained = true;
+		if (this.onDrain)
+		    this.onDrain();
+	    }
 	}.bind(this));
 	this.writesPending++;
+	this.drained = false;
     },
 
     end: function() {

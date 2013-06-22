@@ -34,6 +34,7 @@ Peer.prototype = {
 		    this.discardRequestedChunks();
 		}.bind(this);
 		sock.onData = this.onData.bind(this);
+		sock.onDrain = this.onDrain.bind(this);
 		this.sendHandshake();
 	    }
 	}.bind(this));
@@ -259,8 +260,19 @@ Peer.prototype = {
 	    return null;
     },
 
+    onDrain: function() {
+	try {
+	    this.canRequest();
+	} catch (e) {
+	    console.error(e.stack || e.message);
+	}
+    },
+
     canRequest: function() {
-	while(!this.choked && this.requestedChunks.length < this.inflightThreshold) {
+	if (this.choked || !this.sock || !this.sock.drained)
+	    return;
+
+	while(this.requestedChunks.length < this.inflightThreshold) {
 	    var chunk = this.torrent.store.nextToDownload(this);
 	    if (chunk)
 		this.request(chunk);
