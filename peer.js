@@ -176,11 +176,11 @@ Peer.prototype = {
 	    if (!this.minDelay)
 		this.minDelay = delay;
 	    else if (delay < this.minDelay) {
-		this.minDelay = 0.2 * this.minDelay + 0.8 * delay;
+		this.minDelay = 0.9 * this.minDelay + 0.1 * delay;
 		this.inflightThreshold++;
 	    } else {
-		this.minDelay = 0.95 * this.minDelay + 0.05 * delay;
-		if (delay > this.minDelay * 1.2 && this.inflightThreshold > 2)
+		this.minDelay = 0.99 * this.minDelay + 0.01 * delay;
+		if (delay > this.minDelay * 2 && this.inflightThreshold > 2)
 		    this.inflightThreshold--;
 	    }
 	    if (chunk.timeout) {
@@ -315,7 +315,7 @@ Peer.prototype = {
 		this.removeRequestedChunk(piece, offset, length);
 		chunk.cancel();
 	    }.bind(this), 2 * delay);
-	}.bind(this), 3 * delay);
+	}.bind(this), 5 * delay);
 	this.requestedChunks.push(chunk);
     }
 };

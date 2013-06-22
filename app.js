@@ -86,7 +86,7 @@ app.directive('piecesCanvas', function() {
 		    });
 		}
 
-		setTimeout(draw, 500);
+		setTimeout(draw, 100);
 	    }
 	    draw();
         }
