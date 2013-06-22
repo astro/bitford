@@ -177,10 +177,10 @@ Peer.prototype = {
 		this.minDelay = delay;
 	    else if (delay < this.minDelay) {
 		this.minDelay = 0.9 * this.minDelay + 0.1 * delay;
-		this.inflightThreshold++;
+		this.inflightThreshold += 2;
 	    } else {
 		this.minDelay = 0.99 * this.minDelay + 0.01 * delay;
-		if (delay > this.minDelay * 2 && this.inflightThreshold > 2)
+		if (delay > this.minDelay * 1.2 && this.inflightThreshold > 2)
 		    this.inflightThreshold--;
 	    }
 	    if (chunk.timeout) {
