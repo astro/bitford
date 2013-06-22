@@ -31,7 +31,7 @@ Peer.prototype = {
 		sock.onEnd = function() {
 		    delete this.sock;
 		    this.state = 'disconnected';
-		    this.cancelAll();
+		    this.discardRequestedChunks();
 		}.bind(this);
 		sock.onData = this.onData.bind(this);
 		this.sendHandshake();
@@ -123,7 +123,7 @@ Peer.prototype = {
 	    case 0:
 		/* Choke */
 		this.choked = true;
-		this.cancelAll();
+		this.discardRequestedChunks();
 		break;
 	    case 1:
 		/* Unchoke */
@@ -233,7 +233,7 @@ Peer.prototype = {
 	// TODO: We'll need to send not interested as our pieces complete
     },
 
-    cancelAll: function() {
+    discardRequestedChunks: function() {
 	this.requestedChunks.forEach(function(chunk) {
 	    chunk.cancel();
 	    if (chunk.timeout) {
