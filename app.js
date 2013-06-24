@@ -48,7 +48,7 @@ app.directive('piecesCanvas', function() {
 		if (!pieces)
 		    return;
 		var pieceLength = $scope.torrent.store.pieceLength;
-		var maxP = Math.max(pieces.length, 200);
+		var maxP = Math.min(pieces.length, 200);
 		element.attr('width', 3 * Math.ceil(pieceLength / CHUNK_LENGTH));
 		element.attr('height', Math.min(3 * maxP, 1024));
 		var canvas = element[0];
