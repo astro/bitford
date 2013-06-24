@@ -44,21 +44,21 @@ app.directive('piecesCanvas', function() {
 	restrict: 'A',
 	link: function($scope, element, attrs) {
 	    function draw() {
+		var pieces = $scope.torrent.store.pieces;
+		if (!pieces)
+		    return;
 		var pieceLength = $scope.torrent.store.pieceLength;
+		var maxP = Math.max(pieces.length, 200);
 		element.attr('width', 3 * Math.ceil(pieceLength / CHUNK_LENGTH));
-		element.attr('height', 3 * $scope.torrent.store.pieces.length);
+		element.attr('height', Math.min(3 * maxP, 1024));
 		var canvas = element[0];
 		var ctx = canvas.getContext('2d');
 		ctx.fillStyle = "white";
 		ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-		var pieces = $scope.torrent.store.pieces;
-		if (!pieces)
-		    return;
-
-		for(var y = 0; y < pieces.length; y++) {
-		    var y1 = canvas.height * y / pieces.length;
-		    var y2 = canvas.height * (y + 1) / pieces.length;
+		for(var y = 0; y < maxP; y++) {
+		    var y1 = canvas.height * y / maxP;
+		    var y2 = canvas.height * (y + 1) / maxP;
 		    if (pieces[y].valid) {
 			ctx.fillStyle = "#7f7";
 			ctx.fillRect(0, y1, canvas.width, y2);
@@ -80,7 +80,7 @@ app.directive('piecesCanvas', function() {
 				    ctx.fillStyle = "blue";
 				    break;
 				case 'valid':
-				    ctx.fillStyle = "#070";
+				    ctx.fillStyle = "#0c0";
 				    break;
 				default:
 				    ctx.fillStyle = "black";
@@ -89,7 +89,7 @@ app.directive('piecesCanvas', function() {
 			});
 		}
 
-		setTimeout(draw, 100);
+		setTimeout(draw, 1000);
 	    }
 	    draw();
         }
@@ -103,7 +103,7 @@ app.controller('TorrentsController', function($scope, Torrents) {
 	setTimeout(function() {
 	    $scope.$apply(function() { });
 	    tick();
-	}, 500);
+	}, 100);
     }
     tick();
 });

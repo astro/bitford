@@ -30,7 +30,7 @@
 		  style="float: left; padding-right: 2em">
 	  </canvas>
 	  <ul ng-repeat="peer in torrent.peers | filter: { state: 'connected' }">
-	    <li>
+	    <li ng-show="peer.state == 'connected'">
 	      {{peer.ip}}:{{peer.port}}
 	      {{peer.state}} {{peer.error}}
 	      <span ng-show="peer.state == 'connected'">
