@@ -12,9 +12,6 @@ function Peer(torrent, info) {
     // Them in us
     this.interested = false;
     this.choked = true;
-
-    console.log("Connect peer", this.ip, ":", this.port);
-    this.connect();
 }
 
 Peer.prototype = {

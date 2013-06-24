@@ -41,12 +41,25 @@ function Torrent(meta) {
     // Can defer:
     this.trackers.forEach(function(tg) { tg.start() });
     console.log("Torrent", this);
+
+    setInterval(this.canConnectPeer.bind(this), 100);
 }
 
 Torrent.prototype = {
+    canConnectPeer: function() {
+	for(var i = 0; i < this.peers.length; i++) {
+	    var peer = this.peers[i];
+	    if (!peer.state && !peer.error) {
+		peer.connect();
+		break;
+	    }
+	}
+    },
+
     addPeer: function(info) {
 	this.peers.push(new Peer(this, info));
     },
+
     getBitfield: function() {
 	var result = new Uint8Array(Math.ceil(this.pieces / 8));
 	return result;
