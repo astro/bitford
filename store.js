@@ -109,42 +109,89 @@ Store.prototype = {
 	});
     },
 
-    withFile: function(parts, type, cb) {
-	var id = parts.join("/");
+    withFile: function(job) {
+	var id = job.path.join("/");
+	var t1 = Date.now();
+	var workDone = 0;
 	var fileQueues = this.fileQueues;
-	var item = { type: type, callback: cb };
 	if (fileQueues.hasOwnProperty(id)) {
-	    fileQueues[id].push(item);
+	    fileQueues[id].push(job);
+	    console.log("in line with", fileQueues[id].length);
 	} else {
-	    fileQueues[id] = [item];
-	    this.withFileEntry(parts, function(entry) {
+	    fileQueues[id] = [job];
+	    this.withFileEntry(job.path, function(entry) {
 		// console.log("fileEntry", id, entry.fullPath, entry.toURL());
 		var readFile, writer;
 		function workQueue() {
-		    var item = fileQueues[id].shift();
-		    if (!item) {
+		    var job = fileQueues[id].shift();
+		    if (!job) {
+			console.log("withFile close", id, "after", Date.now() - t1, "ms:", workDone);
 			delete fileQueues[id];
-		    } else if (item.type === 'read') {
-			if (readFile)
-			    item.callback(readFile, workQueue);
-			else
+		    } else if (job.type === 'read') {
+			workDone++;
+			if (!readFile) {
+			    fileQueues[id].unshift(job);
 			    entry.file(function(file) {
 				readFile = file;
-				item.callback(readFile, workQueue);
+				workQueue();
 			    });
-		    } else if (item.type === 'write') {
-			if (writer)
-			    item.callback(writer, workQueue);
-			else
+			} else {
+			    var reader = new FileReader();
+			    reader.onload = function() {
+				job.callback(reader.result);
+				workQueue();
+			    };
+			    reader.onerror = function(error) {
+				console.error("read", error);
+				job.callback();
+				workQueue();
+			    };
+			    reader.readAsArrayBuffer(readFile.slice(job.offset, job.offset + job.length));
+			}
+		    } else if (job.type === 'write') {
+			workDone++;
+			if (!writer) {
+			    fileQueues[id].unshift(job);
 			    entry.createWriter(function(writer_) {
 				writer = writer_;
-				item.callback(writer, workQueue);
+				workQueue();
 			    });
+			} else {
+			    writer.seek(job.offset);
+			    writer.onwriteend = function() {
+				job.callback();
+				workQueue();
+			    };
+			    writer.onerror = function(error) {
+				console.error("write", error);
+				job.callback();
+				workQueue();
+			    };
+			    writer.write(new Blob(job.data));
+			}
 		    }
 		}
 		workQueue();
 	    });
 	}
+    },
+
+    readFile: function(path, offset, length, cb) {
+	this.withFile({ path: path,
+			type: 'read',
+			offset: offset,
+			length: length,
+			callback: cb
+		      });
+    },
+
+    writeFile: function(path, offset, data, cb) {
+	this.withFile({ path: path,
+			type: 'write',
+			offset: offset,
+			data: data,
+			callback: cb
+		      });
     }
 };
 
@@ -300,22 +347,7 @@ StorePiece.prototype = {
 		offset -= chunk.length;
 	    } else if (length > 0) {
 		var len = Math.min(chunk.length - offset, length);
-		(function(chunk, offset, len) {
-		     this.store.withFile(chunk.path, 'read', function(file, releaseFile) {
-			 var reader = new FileReader();
-			 var cb = onRead();
-			 reader.onload = function() {
-			     releaseFile();
-			     cb(reader.result);
-			 };
-			 reader.onerror = function() {
-			     releaseFile();
-			     cb();
-			 };
-			 var fileOffset = chunk.fileOffset + offset;
-			 reader.readAsArrayBuffer(file.slice(fileOffset, fileOffset + len));
-		     });
-		 }.bind(this))(chunk, offset, len);
+		this.store.readFile(chunk.path, chunk.fileOffset + offset, len, onRead());
 		offset = 0;
 		length -= len;
 	    } else
@@ -334,21 +366,13 @@ StorePiece.prototype = {
 		var length = Math.min(data.length, chunk.length);
 		var bufs = data.getBuffers(0, length);
 		if (chunk.state !== 'valid') {
-		    (function(chunk, bufs) {
-			 this.store.withFile(chunk.path, 'write', function(writer, releaseFile) {
-			     writer.seek(chunk.fileOffset);
-			     writer.write(new Blob(bufs));
-			     writer.onwriteend = function() {
-				 writer.onwriteend = null;
-				 releaseFile();
-
-				 chunk.state = 'written';
-				 canHash(chunk.offset, bufs);
-
-				 cb();
-			     };
+		    (function(chunk, bufs, length) {
+			 this.store.writeFile(chunk.path, chunk.fileOffset, bufs, function() {
+			     chunk.state = 'written';
+			     cb();
+			     canHash(chunk.offset, bufs);
 			 });
-		     }.bind(this))(chunk, bufs);
+		     }.bind(this))(chunk, bufs, length);
 		    chunk.peer = null;
 		    chunk.state = 'received';
 		}
