@@ -125,8 +125,6 @@ Store.prototype = {
 		    if (!item) {
 			delete fileQueues[id];
 		    } else if (item.type === 'read') {
-			if (writer)
-			    writer = null;
 			if (readFile)
 			    item.callback(readFile, workQueue);
 			else
@@ -135,8 +133,6 @@ Store.prototype = {
 				item.callback(readFile, workQueue);
 			    });
 		    } else if (item.type === 'write') {
-			if (readFile)
-			    readFile = null;
 			if (writer)
 			    item.callback(writer, workQueue);
 			else
