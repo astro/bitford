@@ -97,6 +97,9 @@ Peer.prototype = {
 		this.sendBitfield();
 		this.state = 'connected';
 		this.buffer.take(20 + 8 + 20 + 20);
+
+		this.sendLength(1);
+		this.sock.write(new Uint8Array([2]));  /* Interested */
 	    } else if (this.state === 'connected' && !this.messageSize && this.buffer.length >= 4) {
 		this.messageSize = this.buffer.getWord32BE(0);
 		this.buffer.take(4);
