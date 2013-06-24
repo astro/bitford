@@ -219,7 +219,9 @@ Peer.prototype = {
     },
 
     has: function(pieceIdx) {
-	return !!(this.bitfield[Math.floor(pieceIdx / 8)] & (1 << (7 - (pieceIdx % 8))));
+	return this.bitfield &&
+	    (pieceIdx / 8) < this.bitfield.length &&
+	    !!(this.bitfield[Math.floor(pieceIdx / 8)] & (1 << (7 - (pieceIdx % 8))));
     },
 
     onUpdateBitfield: function() {
