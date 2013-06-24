@@ -292,7 +292,7 @@ Peer.prototype = {
 	    (length >> 24) & 0xff, (length >> 16) & 0xff, (length >> 8) & 0xff, length & 0xff
 	]));
 
-	var delay = this.minDelay || 1000;
+	var delay = this.minDelay || (this.inflightThreshold * 1000);
 	chunk.timeout = setTimeout(function() {
 	    console.log(this.ip, "chunk timeout", chunk.piece, ":", chunk.offset);
 	    chunk.timeout = null;
@@ -308,8 +308,8 @@ Peer.prototype = {
 	    setTimeout(function() {
 		this.removeRequestedChunk(piece, offset, length);
 		chunk.cancel();
-	    }.bind(this), 2 * delay);
-	}.bind(this), 5 * delay);
+	    }.bind(this), 5 * delay);
+	}.bind(this), 10 * delay);
 	this.requestedChunks.push(chunk);
     }
 };
