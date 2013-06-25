@@ -346,11 +346,11 @@ StorePiece.prototype = {
 	    if (start >= 0 && start < chunk.length) {
 		var len = chunk.length - start;
 		var offset = chunk.offset + start;
-		(function(offset) {
+		(function(offset, len) {
 		     this.read(offset, len, function(data) {
 			 this.canHash(offset, data);
 		     }.bind(this));
-		 }.bind(this))(offset);
+		 }.bind(this))(offset, len);
 		break;
 	    } else if (start < 0) {
 		console.log("cannot Hash", this.chunks, this.sha1pos);
