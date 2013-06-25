@@ -176,6 +176,11 @@ Peer.prototype = {
 	if (this.inPiecesProcessing >= this.inflightThreshold)
 	    /* Back-pressure but with allowance to buffer up in the store */
 	    this.sock.pause();
+	var onProcessed = function() {
+	    this.inPiecesProcessing--;
+	    if (this.inPiecesProcessing < this.inflightThreshold)
+		this.sock.resume();
+	}.bind(this);
 
 	var chunk = this.removeRequestedChunk(piece, offset, data.length);
 	if (chunk) {
@@ -194,17 +199,12 @@ Peer.prototype = {
 	    }
 
 	    /* Write & resume */
-	    this.torrent.store.write(piece, offset, data, function() {
-		this.inPiecesProcessing--;
-		if (this.inPiecesProcessing < this.inflightThreshold)
-		    this.sock.resume();
-	    }.bind(this));
-	    this.canRequest();
+	    this.torrent.store.write(piece, offset, data, onProcessed);
 	} else {
 	    console.warn("Received unexpected piece", piece, offset, data.length);
-	    this.sock.resume();
-	    this.canRequest();
+	    onProcessed();
 	}
+	this.canRequest();
     },
 
     getDonePercent: function() {

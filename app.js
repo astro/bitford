@@ -60,7 +60,7 @@ app.directive('piecesCanvas', function() {
 		    var y1 = canvas.height * y / maxP;
 		    var y2 = canvas.height * (y + 1) / maxP;
 		    if (pieces[y].valid) {
-			ctx.fillStyle = "#7f7";
+			ctx.fillStyle = "#3f3";
 			ctx.fillRect(0, y1, canvas.width, y2);
 		    } else
 			pieces[y].chunks.forEach(function(chunk) {

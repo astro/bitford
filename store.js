@@ -149,6 +149,7 @@ Store.prototype = {
 				/* Loop */
 				workQueue();
 			    };
+			    var t3 = Date.now();
 			    reader.readAsArrayBuffer(readFile.slice(job.offset, job.offset + job.length));
 			}
 		    } else if (job.type === 'write') {
@@ -273,12 +274,14 @@ StorePiece.prototype = {
 		requestedChunks.push(chunk);
 	    }
 	}
+	var onPieceMissing = this.store.onPieceMissing.bind(this);
 	if (result)
 	    result.cancel = function() {
 		requestedChunks.forEach(function(chunk) {
 		    chunk.peer = null;
 		    if (chunk.state == 'requested')
 			chunk.state = 'missing';
+		    onPieceMissing();
 		});
 	    };
 	return result;
@@ -322,10 +325,10 @@ StorePiece.prototype = {
 		console.warn("Invalid piece", hash, "<>", this.expectedHash);
 		this.sha1pos = 0;
 		for(i = 0; i < this.chunks.length; i++) {
-		    var chunk = this.chunks[i];
-		    if (chunk.state == 'valid')
-			chunk.state = 'missing';
+		    if (this.chunks[i].state == 'valid')
+			this.chunks[i].state = 'missing';
 		}
+		this.store.onPieceMissing();
 	    }
 	} else
 	    this.continueHashing();

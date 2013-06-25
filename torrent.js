@@ -26,6 +26,7 @@ function Torrent(meta) {
 	}), pieces, pieceLength);
     else
 	throw "Invalid torrent: no files";
+    this.store.onPieceMissing = this.onPieceMissing.bind(this);
 
     /* Init trackers */
     if (meta['announce-list'])
@@ -63,5 +64,13 @@ Torrent.prototype = {
     getBitfield: function() {
 	var result = new Uint8Array(Math.ceil(this.pieces / 8));
 	return result;
+    },
+
+    onPieceMissing: function() {
+	for(var i = 0; i < this.peers.length; i++) {
+	    var peer = this.peers[i];
+	    if (peer.state === 'connected')
+		peer.canRequest();
+	}
     }
 };
