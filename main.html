@@ -42,7 +42,7 @@
 		<span ng-show="peer.interesting" style="color: blue">I!</span>
 		<span ng-hide="peer.interesting" style="color: #ccc">N!</span>
 		<span ng-show="peer.state == 'connected'">
-		  {{round(peer.minDelay)}} ms, req {{peer.requestedChunks.length}}/{{peer.inflightThreshold}}, {{peer.buffer.length}} buffer
+		  {{round(peer.minDelay)}} ms, req {{peer.requestedChunks.length}}/{{peer.inflightThreshold}}, proc {{peer.inPiecesProcessing}}, {{peer.buffer.length}} buffer
 		</span>
 	      </span>
 	    </li>

@@ -133,17 +133,20 @@ Store.prototype = {
 			    fileQueues[id].unshift(job);
 			    entry.file(function(file) {
 				readFile = file;
+				/* Loop & retry */
 				workQueue();
 			    });
 			} else {
 			    var reader = new FileReader();
 			    reader.onload = function() {
 				job.callback(reader.result);
+				/* Loop */
 				workQueue();
 			    };
 			    reader.onerror = function(error) {
 				console.error("read", error);
 				job.callback();
+				/* Loop */
 				workQueue();
 			    };
 			    reader.readAsArrayBuffer(readFile.slice(job.offset, job.offset + job.length));
@@ -154,20 +157,51 @@ Store.prototype = {
 			    fileQueues[id].unshift(job);
 			    entry.createWriter(function(writer_) {
 				writer = writer_;
+				/* Loop & retry */
 				workQueue();
 			    });
 			} else {
-			    writer.seek(job.offset);
+			    if (writer.position !== job.offset)
+				writer.seek(job.offset);
 			    writer.onwriteend = function() {
 				job.callback();
+
+				/* Find one that is writeable without seek() */
+				for(var i = 0; i < fileQueues[id].length; i++) {
+				    if (fileQueues[id][i].offset === writer.position)
+					break;
+				}
+				if (i > 0 && i < fileQueues[id].length) {
+				    console.warn("Reordering in event queue", id, i);
+				    var jobs = fileQueues[id].splice(i, 1);
+				    /* insert to front */
+				    fileQueues[id].unshift(jobs[0]);
+				}
+				/* Loop */
 				workQueue();
 			    };
 			    writer.onerror = function(error) {
 				console.error("write", error);
 				job.callback();
+				/* Loop */
 				workQueue();
 			    };
-			    writer.write(new Blob(job.data));
+			    /* Write coalescing */
+			    fileQueues[id] = fileQueues[id].filter(function(otherJob) {
+			    	if (otherJob.offset == job.offset + job.data.length) {
+			    	    job.data.append(otherJob.data);
+				    var callback1 = job.callback;
+				    job.callback = function() {
+					callback1();
+					otherJob.callback();
+				    };
+			    	    return false;
+			    	} else
+			    	    return true;
+			    });
+			    if (job.data.length > 32768)
+				console.log("write", job.offset, job.data.length);
+			    writer.write(job.data.toBlob());
 			}
 		    }
 		}
@@ -250,17 +284,17 @@ StorePiece.prototype = {
 	return result;
     },
 
-    canHash: function(offset, bufs) {
+    canHash: function(offset, data) {
 	if (offset > this.sha1pos)
 	    return;
 	else if (offset < this.sha1pos) {
-	    bufs = new BufferList(bufs).getBuffers(this.sha1pos - offset);
+	    data.take(this.sha1pos - offset);
 	}
 	// console.log("piece", this.store.pieces.indexOf(this), "canHash", offset, this.sha1pos);
 	if (!this.sha1)
 	    this.sha1 = new Digest.SHA1();
 	var sha1 = this.sha1;
-	bufs.forEach(function(buf) {
+	data.buffers.forEach(function(buf) {
 	    sha1.update(buf);
 	    this.sha1pos += buf.byteLength;
 	}.bind(this));
@@ -311,7 +345,7 @@ StorePiece.prototype = {
 		var offset = chunk.offset + start;
 		(function(offset) {
 		     this.read(offset, len, function(data) {
-			 this.canHash(offset, data.buffers);
+			 this.canHash(offset, data);
 		     }.bind(this));
 		 }.bind(this))(offset);
 		break;
@@ -362,17 +396,18 @@ StorePiece.prototype = {
 	    var chunk = this.chunks[i];
 	    if (offset >= chunk.length) {
 		offset -= chunk.length;
-	    } else if (offset == 0) {
+	    } else if (offset >= 0) {
+		data.take(offset);
 		var length = Math.min(data.length, chunk.length);
-		var bufs = data.getBuffers(0, length);
+		var buffer = data.getBufferList(0, length);
 		if (chunk.state !== 'valid') {
-		    (function(chunk, bufs, length) {
-			 this.store.writeFile(chunk.path, chunk.fileOffset, bufs, function() {
+		    (function(chunk, buffer, length) {
+			 this.store.writeFile(chunk.path, chunk.fileOffset, buffer, function() {
 			     chunk.state = 'written';
 			     cb();
-			     canHash(chunk.offset, bufs);
+			     canHash(chunk.offset, buffer);
 			 });
-		     }.bind(this))(chunk, bufs, length);
+		     }.bind(this))(chunk, buffer, length);
 		    chunk.peer = null;
 		    chunk.state = 'received';
 		}

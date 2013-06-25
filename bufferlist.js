@@ -7,15 +7,27 @@
     reader.readAsArrayBuffer(blob);
 }*/
 
-function BufferList(arrays) {
+function BufferList(init) {
     this.offset = 0;  // into buffers
     this.length = 0;  // excl. offset
-    this.buffers = arrays || [];;
+    this.buffers = [];
+
+    if (init)
+	this.append(init);
 }
 BufferList.prototype = {
+    constructor: BufferList,
     append: function(b) {
-	this.buffers.push(b);
-	this.length += b.byteLength;
+	if (typeof b.byteLength === 'number') {
+	    this.buffers.push(b);
+	    this.length += b.byteLength;
+	} else if (b.__proto__.constructor === Array) {
+	    b.forEach(this.append.bind(this));
+	} else if (b.__proto__.constructor === BufferList) {
+	    b.buffers.forEach(this.append.bind(this));
+	} else {
+	    console.error("Failure appending to BufferList", b);
+	}
     },
     take: function(n) {
 	this.offset += n;
@@ -25,6 +37,8 @@ BufferList.prototype = {
 	}
     },
     getBuffers: function(start, len) {
+	if (typeof start !== 'number')
+	    start = 0;
 	if (typeof len !== 'number')
 	    len = this.length - start;
 	start += this.offset;
@@ -69,6 +83,9 @@ BufferList.prototype = {
 	    }
 	    return buf;
 	}
+    },
+    toBlob: function() {
+	return new Blob(this.getBuffers());
     },
     getByte: function(offset) {
 	offset += this.offset;

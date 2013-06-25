@@ -11,7 +11,7 @@ TrackerGroup.prototype = {
 	    this.trackers.push(this.trackers.shift());
 
 	    var peers = response && response.peers;
-	    if (peers && peers.prototype && peers.prototype.constructor === Array) {
+	    if (peers && peers.__proto__ && peers.__proto__.constructor === Array) {
 		/* Non-compact IPv4 */
 		peers.forEach(this.torrent.addPeer.bind(torrent));
 	    }
