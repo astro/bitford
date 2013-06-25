@@ -116,7 +116,7 @@ Store.prototype = {
 	var fileQueues = this.fileQueues;
 	if (fileQueues.hasOwnProperty(id)) {
 	    fileQueues[id].push(job);
-	    console.log("in line with", fileQueues[id].length);
+	    // console.log("in line with", fileQueues[id].length);
 	} else {
 	    fileQueues[id] = [job];
 	    this.withFileEntry(job.path, function(entry) {
@@ -125,7 +125,7 @@ Store.prototype = {
 		function workQueue() {
 		    var job = fileQueues[id].shift();
 		    if (!job) {
-			console.log("withFile close", id, "after", Date.now() - t1, "ms:", workDone);
+			// console.log("withFile close", id, "after", Date.now() - t1, "ms:", workDone);
 			delete fileQueues[id];
 		    } else if (job.type === 'read') {
 			workDone++;
@@ -172,7 +172,7 @@ Store.prototype = {
 					break;
 				}
 				if (i > 0 && i < fileQueues[id].length) {
-				    console.warn("Reordering in event queue", id, i);
+				    console.log("Reordering in event queue", id, i);
 				    var jobs = fileQueues[id].splice(i, 1);
 				    /* insert to front */
 				    fileQueues[id].unshift(jobs[0]);
@@ -390,6 +390,10 @@ StorePiece.prototype = {
     },
 
     write: function(offset, data, cb) {
+	if (this.valid) {
+	    console.warn("Attempting to write to valid piece!");
+	    return;
+	}
 	var canHash = this.canHash.bind(this);
 
 	for(var i = 0; data.length > 0 && i < this.chunks.length; i++) {
