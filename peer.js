@@ -190,11 +190,8 @@ Peer.prototype = {
 	    else if (delay < this.minDelay) {
 		this.minDelay = 0.8 * this.minDelay + 0.2 * delay;
 	    } else if (delay < 1.5 * this.minDelay) {
-		this.inflightThreshold++;
 	    } else {
 		this.minDelay = 0.99 * this.minDelay + 0.01 * delay;
-		if (this.inflightThreshold > 4)
-		    this.inflightThreshold--;
 	    }
 	    if (chunk.timeout) {
 		clearTimeout(chunk.timeout);
@@ -318,12 +315,17 @@ Peer.prototype = {
 	    	(offset >> 24) & 0xff, (offset >> 16) & 0xff, (offset >> 8) & 0xff, offset & 0xff,
 	    	(length >> 24) & 0xff, (length >> 16) & 0xff, (length >> 8) & 0xff, length & 0xff
 	    ]));
-	    /* Give some time to still come in */
-	    setTimeout(function() {
-		this.removeRequestedChunk(piece, offset, length);
-		chunk.cancel();
-	    }.bind(this), 2 * delay);
-	}.bind(this), this.inflightThreshold * delay);
+	    if (this.minDelay) {
+		/* Give some time to still come in */
+		setTimeout(function() {
+		    this.removeRequestedChunk(piece, offset, length);
+		    chunk.cancel();
+		}.bind(this), 2 * delay);
+	    } else {
+		/* Discards all in onEnd() */
+		this.sock.end();
+	    }
+	}.bind(this), 1.5 * this.inflightThreshold * delay);
 	this.requestedChunks.push(chunk);
     }
 };
