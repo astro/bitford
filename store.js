@@ -32,19 +32,10 @@ function Store(files, pieceHashes, pieceLength) {
 	}
 	this.pieces.push(new StorePiece(this, this.pieces.length, chunks, pieceHashes[this.pieces.length]));
     }
-    this.fileQueues = {};
 
     /* TODO: start hashing */
 }
 Store.prototype = {
-    fileQueuesSize: function() {
-	var total = 0;
-	for(var id in this.fileQueues)
-	    if (this.fileQueues.hasOwnProperty(id))
-		total += this.fileQueues[id].length;
-	return total;
-    },
-
     isInterestedIn: function(peer) {
 	for(var i = 0; i < this.pieces.length; i++) {
 	    var piece = this.pieces[i];
@@ -109,124 +100,42 @@ Store.prototype = {
 	});
     },
 
-    withFile: function(job) {
-	var id = job.path.join("/");
-	var t1 = Date.now();
-	var workDone = 0;
-	var fileQueues = this.fileQueues;
-	if (fileQueues.hasOwnProperty(id)) {
-	    fileQueues[id].push(job);
-	    // console.log("in line with", fileQueues[id].length);
-	} else {
-	    fileQueues[id] = [job];
-	    this.withFileEntry(job.path, function(entry) {
-		// console.log("fileEntry", id, entry.fullPath, entry.toURL());
-		var readFile, writer;
-		function workQueue() {
-		    var job = fileQueues[id].shift();
-		    if (!job) {
-			// console.log("withFile close", id, "after", Date.now() - t1, "ms:", workDone);
-			delete fileQueues[id];
-		    } else if (job.type === 'read') {
-			workDone++;
-			if (!readFile) {
-			    fileQueues[id].unshift(job);
-			    entry.file(function(file) {
-				readFile = file;
-				/* Loop & retry */
-				workQueue();
-			    });
-			} else {
-			    var reader = new FileReader();
-			    reader.onload = function() {
-				job.callback(reader.result);
-				/* Loop */
-				workQueue();
-			    };
-			    reader.onerror = function(error) {
-				console.error("read", error);
-				job.callback();
-				/* Loop */
-				workQueue();
-			    };
-			    var t3 = Date.now();
-			    reader.readAsArrayBuffer(readFile.slice(job.offset, job.offset + job.length));
-			}
-		    } else if (job.type === 'write') {
-			workDone++;
-			if (!writer) {
-			    fileQueues[id].unshift(job);
-			    entry.createWriter(function(writer_) {
-				writer = writer_;
-				/* Loop & retry */
-				workQueue();
-			    });
-			} else {
-			    if (writer.position !== job.offset)
-				writer.seek(job.offset);
-			    writer.onwriteend = function() {
-				job.callback();
-
-				/* Find one that is writeable without seek() */
-				for(var i = 0; i < fileQueues[id].length; i++) {
-				    if (fileQueues[id][i].offset === writer.position)
-					break;
-				}
-				if (i > 0 && i < fileQueues[id].length) {
-				    console.log("Reordering in event queue", id, i);
-				    var jobs = fileQueues[id].splice(i, 1);
-				    /* insert to front */
-				    fileQueues[id].unshift(jobs[0]);
-				}
-				/* Loop */
-				workQueue();
-			    };
-			    writer.onerror = function(error) {
-				console.error("write", error);
-				job.callback();
-				/* Loop */
-				workQueue();
-			    };
-			    /* Write coalescing */
-			    fileQueues[id] = fileQueues[id].filter(function(otherJob) {
-			    	if (otherJob.offset == job.offset + job.data.length) {
-			    	    job.data.append(otherJob.data);
-				    var callback1 = job.callback;
-				    job.callback = function() {
-					callback1();
-					otherJob.callback();
-				    };
-			    	    return false;
-			    	} else
-			    	    return true;
-			    });
-			    if (job.data.length > 32768)
-				console.log("write", job.offset, job.data.length);
-			    writer.write(job.data.toBlob());
-			}
-		    }
-		}
-		workQueue();
-	    });
-	}
-    },
-
     readFile: function(path, offset, length, cb) {
-	this.withFile({ path: path,
-			type: 'read',
-			offset: offset,
-			length: length,
-			callback: cb
-		      });
+	var that = this;
+
+	this.withFileEntry(path, function(entry) {
+	    entry.file(function(file) {
+		var reader = new FileReader();
+		reader.onload = function() {
+		    cb(reader.result);
+		};
+		reader.onerror = function(error) {
+		    console.error("readFile", path, offset, length, error);
+		    // HACK: retry later
+		    setTimeout(/*that.readFile.bind(that, path, offset, length, cb)*/function() {
+console.log("retrying", path, offset, length);
+that.readFile(path,offset,length,cb);
+}, 1000);
+		};
+		reader.readAsArrayBuffer(file.slice(offset, offset + length));
+	    });
+	});
     },
 
     writeFile: function(path, offset, data, cb) {
-	this.withFile({ path: path,
-			type: 'write',
-			offset: offset,
-			data: data,
-			callback: cb
-		      });
+	this.withFileEntry(path, function(entry) {
+	    entry.createWriter(function(writer) {
+		writer.seek(offset);
+		writer.onwriteend = function() {
+		    cb();
+		};
+		writer.onerror = function(error) {
+		    console.error("write", error);
+		    cb();
+		};
+		writer.write(data.toBlob());
+	    });
+	});
     }
 };
 
@@ -330,6 +239,7 @@ StorePiece.prototype = {
 			this.chunks[i].state = 'missing';
 		}
 		this.store.onPieceMissing(this.pieceNumber);
+		console.log("invalid piece done");
 	    } else {
 		this.store.onPieceValid(this.pieceNumber);
 	    }

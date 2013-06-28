@@ -307,6 +307,7 @@ Peer.prototype = {
 	chunk.timeout = setTimeout(function() {
 	    console.log(this.ip, "chunk timeout", chunk.piece, ":", chunk.offset);
 	    chunk.timeout = null;
+
 	    /* Cancel */
 	    this.sendLength(13);
 	    this.sock.write(new Uint8Array([

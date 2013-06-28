@@ -70,7 +70,7 @@ Torrent.prototype = {
     onPieceMissing: function(pieceNumber) {
 	for(var i = 0; i < this.peers.length; i++) {
 	    var peer = this.peers[i];
-	    if (peer.state === 'connected')
+	    if (peer.state === 'connected' && peer.has(pieceNumber))
 		peer.canRequest();
 	}
     },
