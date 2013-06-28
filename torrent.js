@@ -27,6 +27,7 @@ function Torrent(meta) {
     else
 	throw "Invalid torrent: no files";
     this.store.onPieceMissing = this.onPieceMissing.bind(this);
+    this.store.onPieceValid = this.onPieceValid.bind(this);
 
     /* Init trackers */
     if (meta['announce-list'])
@@ -66,11 +67,14 @@ Torrent.prototype = {
 	return result;
     },
 
-    onPieceMissing: function() {
+    onPieceMissing: function(pieceNumber) {
 	for(var i = 0; i < this.peers.length; i++) {
 	    var peer = this.peers[i];
 	    if (peer.state === 'connected')
 		peer.canRequest();
 	}
+    },
+
+    onPieceValid: function(pieceNumber) {
     }
 };

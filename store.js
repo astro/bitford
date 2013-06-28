@@ -30,7 +30,7 @@ function Store(files, pieceHashes, pieceLength) {
 		fileOffset = 0;
 	    }
 	}
-	this.pieces.push(new StorePiece(this, chunks, pieceHashes[this.pieces.length]));
+	this.pieces.push(new StorePiece(this, this.pieces.length, chunks, pieceHashes[this.pieces.length]));
     }
     this.fileQueues = {};
 
@@ -232,8 +232,9 @@ Store.prototype = {
 
 var CHUNK_LENGTH = Math.pow(2, 15);
 
-function StorePiece(store, chunks, expectedHash) {
+function StorePiece(store, pieceNumber, chunks, expectedHash) {
     this.store = store;
+    this.pieceNumber = pieceNumber;
     this.chunks = [];
     for(var i = 0; i < chunks.length; i++) {
 	var chunk = chunks[i];
@@ -274,7 +275,7 @@ StorePiece.prototype = {
 		requestedChunks.push(chunk);
 	    }
 	}
-	var onPieceMissing = this.store.onPieceMissing.bind(this);
+	var onPieceMissing = this.store.onPieceMissing.bind(this, this.pieceNumber);
 	if (result)
 	    result.cancel = function() {
 		requestedChunks.forEach(function(chunk) {
@@ -328,7 +329,9 @@ StorePiece.prototype = {
 		    if (this.chunks[i].state == 'valid')
 			this.chunks[i].state = 'missing';
 		}
-		this.store.onPieceMissing();
+		this.store.onPieceMissing(this.pieceNumber);
+	    } else {
+		this.store.onPieceValid(this.pieceNumber);
 	    }
 	} else
 	    this.continueHashing();
