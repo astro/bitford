@@ -52,6 +52,9 @@ console.log("Tracker.url=", url);
 }
 Tracker.prototype = {
     request: function(cb) {
+	if (!(/^https?:\/\//.test(this.url)))
+	    return;
+
         var query = {
 	    info_hash: this.torrent.infoHash,
 	    peer_id: this.torrent.peerId,

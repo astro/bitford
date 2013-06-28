@@ -18,19 +18,37 @@
   </head>
 
   <body>
+    <h1>Bitford</h1>
+
     <form ng-controller="LoadController">
       <button ng-click="loadFile()">Load Torrent</button>
     </form>
 
     <section ng-controller="TorrentsController">
-      <ul ng-repeat="torrent in torrents">
-	<li style="clear: left">
-	  <p>{{torrent.name}} ({{torrent.store.getDonePercent()}}%)</p>
-	  <canvas pieces-canvas width="128" height="512"
-		  style="float: left; padding-right: 2em">
+      <article ng-repeat="torrent in torrents"
+	       ng-controller="TorrentController"
+	       class="torrent">
+	<h2 ng-click="toggleShow()">{{torrent.name}}</h2>
+	<p class="size">{{torrent.store.getDonePercent()}}% of {{humanSize(torrent.store.size)}}</p>
+	<div ng-show="show">
+	  <div>
+	    <button ng-hide="isMultiFile">Save</button>
+	    <button ng-hide="isMultiFile">Play</button>
+	    <button disabled>Remove</button>
+	  </div>
+	  <ul class="files" ng-show="isMultiFile">
+	    <li ng-repeat="file in torrent.files">
+	      <h3>{{file.path.join("/")}}</h3>
+	      <p class="size">{{humanSize(file.size)}}</p>
+	      <button>Save</button>
+	      <button>Play</button>
+	    </li>
+	  </ul>
+
+	  <canvas pieces-canvas width="128" height="512" class="pieces">
 	  </canvas>
-	  <ul ng-repeat="peer in torrent.peers | filter: { state: 'connected' }">
-	    <li ng-show="peer.state == 'connected'">
+	  <ul class="peers">
+	    <li ng-repeat="peer in torrent.peers | filter: { state: 'connected' }">
 	      {{peer.ip}}:{{peer.port}}
 	      {{peer.state}} {{peer.error}}
 	      <span ng-show="peer.state == 'connected'">
@@ -47,8 +65,9 @@
 	      </span>
 	    </li>
 	  </ul>
-	</li>
-      </ul>
+	</div>
+
+      </article>
     </section>
   </body>
 </html>

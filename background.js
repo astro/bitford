@@ -4,8 +4,4 @@ chrome.app.runtime.onLaunched.addListener(function(launchData) {
     }, function(win) {
     	win.contentWindow.launchData = launchData;
     });
-    // chrome.tabs.create({
-    // 	id: 'bitford_main',
-    // 	url: 'main.html'
-    // });
 });

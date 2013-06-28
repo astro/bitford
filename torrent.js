@@ -17,15 +17,16 @@ function Torrent(meta) {
     /* Init Storage */
     var name = UTF8ArrToStr(meta.info.name);
     if (typeof meta.info.length == 'number')
-	this.store = new Store([{ path: [name], size: meta.info.length }], pieces, pieceLength);
+	this.files = [{ path: [name], size: meta.info.length }];
     else if (meta.info.files.__proto__.constructor == Array)
-	this.store = new Store(meta.info.files.map(function(file) {
+	this.files = meta.info.files.map(function(file) {
 	    return { path: [name].concat(file.path.map(UTF8ArrToStr)),
 		     size: file.length
 		   };
-	}), pieces, pieceLength);
+	});
     else
 	throw "Invalid torrent: no files";
+    this.store = new Store(this.files, pieces, pieceLength);
     this.store.onPieceMissing = this.onPieceMissing.bind(this);
     this.store.onPieceValid = this.onPieceValid.bind(this);
 

@@ -2,7 +2,7 @@
     "manifest_version": 2,
 
     "name": "Bitford",
-    "description": "BitTorrent",
+    "description": "BitTorrent client",
     "version": "0.0",
 
     "permissions": [
@@ -19,7 +19,8 @@
 	"background": {
 	    "scripts": [
 		"background.js"
-	    ]
+	    ],
+	    "persistent": false
 	}
     },
     "file_handlers": {
@@ -34,5 +35,9 @@
             "title" : "Start BitTorrent download",
             "type" : ["application/x-bittorrent"]
         }]
-  }
+    },
+    "icons": {
+	"128": "icon128.png",
+	"48": "icon48.png"
+    }
 }

@@ -7,7 +7,6 @@ app.service('Torrents', function() {
 });
 
 app.controller('LoadController', function($scope, Torrents) {
-    $scope.torrents = [];
     $scope.loadFile = function(file) {
 	chrome.fileSystem.chooseEntry({
 	    type: 'openFile',
@@ -32,6 +31,7 @@ app.controller('LoadController', function($scope, Torrents) {
 		    var torrent = new Torrent(torrentMeta);
 		    // TODO: infoHash collision?
 		    Torrents.push(torrent);
+		    console.log("Torrents", Torrents);
 		};
 		reader.readAsArrayBuffer(file);
 	    });
@@ -48,17 +48,16 @@ app.directive('piecesCanvas', function() {
 		if (!pieces)
 		    return;
 		var pieceLength = $scope.torrent.store.pieceLength;
-		var maxP = Math.min(pieces.length, 200);
 		element.attr('width', 3 * Math.ceil(pieceLength / CHUNK_LENGTH));
-		element.attr('height', Math.min(3 * maxP, 1024));
+		element.attr('height', Math.min(3 * pieces.length, 1024));
 		var canvas = element[0];
 		var ctx = canvas.getContext('2d');
 		ctx.fillStyle = "white";
 		ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-		for(var y = 0; y < maxP; y++) {
-		    var y1 = canvas.height * y / maxP;
-		    var y2 = canvas.height * (y + 1) / maxP;
+		for(var y = 0; y < pieces.length; y++) {
+		    var y1 = canvas.height * y / pieces.length;
+		    var y2 = canvas.height * (y + 1) / pieces.length;
 		    if (pieces[y].valid) {
 			ctx.fillStyle = "#3f3";
 			ctx.fillRect(0, y1, canvas.width, y2);
@@ -97,13 +96,41 @@ app.directive('piecesCanvas', function() {
 });
 
 app.controller('TorrentsController', function($scope, Torrents) {
-    $scope.torrents = Torrents;
+    setInterval(function() {
+	$scope.$apply(function() {
+	    $scope.torrents = Torrents;
+	});
+    }, 100);
+});
+
+app.controller('TorrentController', function($scope) {
     $scope.round = Math.round;
+    $scope.humanSize = humanSize;
+    $scope.show = false;
+    $scope.toggleShow = function() {
+	$scope.show = !$scope.show;
+    };
+
     function tick() {
 	setTimeout(function() {
-	    $scope.$apply(function() { });
+	    $scope.$apply(function() {
+		$scope.isMultiFile = $scope.torrent.files.length > 1;
+	    });
 	    tick();
 	}, 100);
     }
     tick();
 });
+
+function humanSize(size) {
+    var units = ["B", "KB", "MB", "GB", "TB"];
+    while(size >= 1024 && units.length > 1) {
+        size /= 1024;
+        units.shift();
+    }
+    if (size < 1000) {
+        return Math.round(size * 1000) / 1000 + " " + units[0];
+    } else {
+        return Math.round(size) + " " + units[0];
+    }
+}

@@ -1,5 +1,8 @@
 ## Roadmap
 
+* Media Source
+* Collect throughput
+* Multifile testing
 * Tracker stats
 * Priorities & shaping
 * Seeding
