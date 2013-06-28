@@ -32,7 +32,7 @@
 	<p class="size">{{torrent.store.getDonePercent()}}% of {{humanSize(torrent.store.size)}}</p>
 	<div ng-show="show">
 	  <div>
-	    <button ng-hide="isMultiFile">Save</button>
+	    <button ng-hide="isMultiFile" ng-click="saveButton()" ng-disabled="saving">Save</button>
 	    <button ng-hide="isMultiFile">Play</button>
 	    <button disabled>Remove</button>
 	  </div>
@@ -40,15 +40,18 @@
 	    <li ng-repeat="file in torrent.files">
 	      <h3>{{file.path.join("/")}}</h3>
 	      <p class="size">{{humanSize(file.size)}}</p>
-	      <button>Save</button>
+	      <button ng-click="saveButton(file.path)" ng-disabled="saving">Save</button>
 	      <button>Play</button>
 	    </li>
 	  </ul>
 
-	  <canvas pieces-canvas width="128" height="512" class="pieces">
+	  <canvas ng-show="torrent.peers.length > 0"
+		  pieces-canvas
+		  width="128" height="512" class="pieces">
 	  </canvas>
-	  <ul class="peers">
-	    <li ng-repeat="peer in torrent.peers | filter: { state: 'connected' }">
+	  <ul ng-show="torrent.peers.length > 0"
+	      class="peers">
+	    <li ng-repeat="peer in torrent.peers | filter:{state:'connected'}">
 	      {{peer.ip}}:{{peer.port}}
 	      {{peer.state}} {{peer.error}}
 	      <span ng-show="peer.state == 'connected'">

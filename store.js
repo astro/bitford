@@ -12,21 +12,21 @@ function Store(files, pieceHashes, pieceLength) {
 
     this.pieces = [];
     /* Build pieces... */
-    var fileOffset = 0;
-    while(files.length > 0) {
+    var filesIdx = 0, fileOffset = 0;
+    while(filesIdx < files.length) {
 	var pieceOffset = 0;
 	var chunks = [];
 	/* ...from files */
-	while(pieceOffset < pieceLength && files.length > 0) {
-	    var length = Math.min(pieceLength - pieceOffset, files[0].size - fileOffset);
-	    chunks.push({ path: files[0].path,
+	while(pieceOffset < pieceLength && filesIdx < files.length) {
+	    var length = Math.min(pieceLength - pieceOffset, files[filesIdx].size - fileOffset);
+	    chunks.push({ path: files[filesIdx].path,
 			  fileOffset: fileOffset,
 			  offset: pieceOffset,
 			  length: length });
 	    pieceOffset += length;
 	    fileOffset += length;
-	    if (fileOffset >= files[0].size) {
-		files.shift();
+	    if (fileOffset >= files[filesIdx].size) {
+		filesIdx++;
 		fileOffset = 0;
 	    }
 	}
@@ -67,6 +67,28 @@ Store.prototype = {
 		done++;
 	}
 	return Math.floor(100 * done / this.pieces.length);
+    },
+
+    consumeFile: function(path, offset, cb) {
+	for(var i = 0; i < this.pieces.length; i++) {
+	    var piece = this.pieces[i];
+	    var found = false, length = 0;
+	    for(var j = 0; j < piece.chunks.length; j++) {
+		var chunk = piece.chunks[j];
+		if (arrayEq(chunk.path, path) && chunk.fileOffset <= offset && chunk.fileOffset + chunk.length > offset) {
+		    found = true;
+		    length += chunk.fileOffset - offset + chunk.length;
+		} else if (found && arrayEq(chunk.path, path) && chunk.fileOffset > offset) {
+		    length += chunk.length;
+		}
+	    }
+	    if (found) {
+		piece.addOnValid(function() {
+		    this.readFile(path, offset, length, cb);
+		}.bind(this));
+		return;
+	    }
+	}
     },
 
     write: function(piece, offset, data, cb) {
@@ -164,6 +186,8 @@ function StorePiece(store, pieceNumber, chunks, expectedHash) {
 
     this.expectedHash = expectedHash;
     this.sha1pos = 0;
+
+    this.onValidCbs = [];
 }
 StorePiece.prototype = {
     state: 'missing',
@@ -242,6 +266,11 @@ StorePiece.prototype = {
 		console.log("invalid piece done");
 	    } else {
 		this.store.onPieceValid(this.pieceNumber);
+		var onValidCbs = this.onValidCbs;
+		this.onValidCbs = [];
+		onValidCbs.forEach(function(cb) {
+		    cb();
+		});
 	    }
 	} else
 	    this.continueHashing();
@@ -336,5 +365,24 @@ StorePiece.prototype = {
 	}
 	if (data.length > 0)
 	    console.warn("write", this.store.pieces.indexOf(this), data.length, "remain");
+    },
+
+    addOnValid: function(cb) {
+	console.log("addOnValid", this.valid, this.pieceNumber);
+	if (this.valid)
+	    cb();
+	else
+	    this.onValidCbs.push(cb);
     }
 };
+
+function arrayEq(a1, a2) {
+    if (a1.length !== a2.length)
+	return false;
+
+    for(var i = 0; i < a1.length; i++)
+	if (a1[i] !== a2[i])
+	    return false;
+
+    return true;
+}

@@ -41,6 +41,18 @@ h1 {
     margin: 2px 4px 2px 0;
 }
 
+.torrent .files {
+    list-style-type: none;
+    margin: 0.5em;
+    padding: 0;
+}
+.torrent h3 {
+    color: #007;
+    font-size: 100%;
+    font-weight: normal;
+    margin: 0;
+}
+
 .torrent canvas.pieces {
     display: inline-block;
     vertical-align: top;

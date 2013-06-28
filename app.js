@@ -103,6 +103,9 @@ app.controller('TorrentsController', function($scope, Torrents) {
     }, 100);
 });
 
+var MediaSource_ = window.MediaSource ||
+    window.WebKitMediaSource;
+
 app.controller('TorrentController', function($scope) {
     $scope.round = Math.round;
     $scope.humanSize = humanSize;
@@ -120,6 +123,59 @@ app.controller('TorrentController', function($scope) {
 	}, 100);
     }
     tick();
+
+    $scope.saveButton = function(path) {
+	if (!path) {
+	    path = [$scope.torrent.name];
+	}
+	var size = $scope.torrent.files.filter(function(file) {
+	    return file.path == path;
+	}).map(function(file) {
+	    return file.size;
+	})[0];
+
+	chrome.fileSystem.chooseEntry({
+	    type: 'saveFile',
+	    suggestedName: path[path.length - 1]
+	}, function(entry) {
+	    entry.createWriter(function(writer) {
+		writer.truncate(0);
+
+		$scope.$apply(function() {
+		    $scope.saving = true;
+		});
+		var bytes = 0;
+		function loop() {
+		    if (bytes >= size) {
+			$scope.$apply(function() {
+			    $scope.saving = false;
+			});
+			return;
+		    }
+
+		    $scope.torrent.store.consumeFile(path, bytes, function(data) {
+			if (data.byteLength > 0) {
+			    writer.onwriteend = function() {
+				bytes += data.byteLength;
+				console.log("written",bytes,"bytes for", entry, writer);
+				loop();
+			    };
+			    writer.onerror = function(error) {
+				console.error("write", error);
+			    };
+			    writer.write(new Blob([data]));
+			} else
+			    $scope.$apply(function() {
+				$scope.saving = false;
+			    });
+		    });
+		}
+		loop();
+	    }, function(e) {
+		console.error("createWriter", e);
+	    });
+	});
+    };
 });
 
 function humanSize(size) {
