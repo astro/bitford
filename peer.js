@@ -5,7 +5,7 @@ function Peer(torrent, info) {
     this.direction = 'outgoing';
     this.buffer = new BufferList();
     this.requestedChunks = [];
-    this.inflightThreshold = 10;
+    this.inflightThreshold = 2;
     this.inPiecesProcessing = 0;
     // We in them
     this.interesting = false;
@@ -189,9 +189,11 @@ Peer.prototype = {
 		this.minDelay = delay;
 	    else if (delay < this.minDelay) {
 		this.minDelay = 0.8 * this.minDelay + 0.2 * delay;
-	    } else if (delay < 1.1 * this.minDelay) {
+	    } else if (delay < 1.5 * this.minDelay) {
+		this.inflightThreshold++;
 	    } else {
 		this.minDelay = 0.99 * this.minDelay + 0.01 * delay;
+		this.inflightThreshold--;
 	    }
 	    if (chunk.timeout) {
 		clearTimeout(chunk.timeout);
@@ -319,7 +321,7 @@ Peer.prototype = {
 	    setTimeout(function() {
 		this.removeRequestedChunk(piece, offset, length);
 		chunk.cancel();
-	    }.bind(this), delay);
+	    }.bind(this), 2 * delay);
 	}.bind(this), this.inflightThreshold * delay);
 	this.requestedChunks.push(chunk);
     }
