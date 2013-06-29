@@ -256,14 +256,13 @@ StorePiece.prototype = {
 		valid = valid && (hash[i] === this.expectedHash[i]);
 	    this.valid = valid;
 	    if (!valid) {
-		console.warn("Invalid piece", hash, "<>", this.expectedHash);
+		console.warn("Invalid piece", this.pieceNumber, ":", hash, "<>", this.expectedHash);
 		this.sha1pos = 0;
 		for(i = 0; i < this.chunks.length; i++) {
 		    if (this.chunks[i].state == 'valid')
 			this.chunks[i].state = 'missing';
 		}
 		this.store.onPieceMissing(this.pieceNumber);
-		console.log("invalid piece done");
 	    } else {
 		this.store.onPieceValid(this.pieceNumber);
 		var onValidCbs = this.onValidCbs;
@@ -288,12 +287,16 @@ StorePiece.prototype = {
 	    if (start >= 0 && start < chunk.length) {
 		var len = chunk.length - start;
 		var offset = chunk.offset + start;
-		(function(offset, len) {
-		     this.read(offset, len, function(data) {
-			 this.canHash(offset, data);
-		     }.bind(this));
-		 }.bind(this))(offset, len);
-		break;
+		this.read(offset, len, function(data) {
+		    if (data.length > 0) {
+			this.canHash(offset, data);
+		    } else {
+			console.warn("cannotHash", this.pieceNumber, ":", offset, "+", len);
+			chunk.state = 'missing';
+			this.store.onPieceMissing(this.pieceNumber);
+		    }
+		}.bind(this));
+		return;
 	    } else if (start < 0) {
 		console.log("cannot Hash", this.chunks, this.sha1pos);
 	    }
