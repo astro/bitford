@@ -32,8 +32,8 @@
 	<p class="size">{{torrent.store.getDonePercent()}}% of {{humanSize(torrent.store.size)}}</p>
 	<div ng-show="show">
 	  <div>
-	    <button ng-hide="isMultiFile" ng-click="saveButton()" ng-disabled="saving">Save</button>
-	    <button ng-hide="isMultiFile">Play</button>
+	    <button ng-hide="isMultiFile" ng-click="saveButton([torrent.name])" ng-disabled="saving">Save</button>
+	    <button ng-hide="isMultiFile" ng-click="playButton([torrent.name])">Play</button>
 	    <button disabled>Remove</button>
 	  </div>
 	  <ul class="files" ng-show="isMultiFile">
@@ -44,6 +44,12 @@
 	      <button>Play</button>
 	    </li>
 	  </ul>
+
+	  <div ng-show="playingURL">
+	    <video src="{{playingURL}}"
+		   autoplay controls>
+	    </video>
+	  </div>
 
 	  <canvas ng-show="torrent.peers.length > 0"
 		  pieces-canvas

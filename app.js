@@ -124,10 +124,44 @@ app.controller('TorrentController', function($scope) {
     }
     tick();
 
+    $scope.playButton = function(path) {
+	var size = $scope.torrent.files.filter(function(file) {
+	    return file.path == path;
+	}).map(function(file) {
+	    return file.size;
+	})[0];
+
+	var src = new MediaSource_();
+	$scope.playingURL = window.URL.createObjectURL(src);
+	src.addEventListener('webkitsourceopen', function(ev) {
+	    var buf = src.addSourceBuffer("*/*");
+
+	    var bytes = 0;
+	    function loop() {
+		if (bytes >= size) {
+		    src.endOfStream();
+		    return;
+		}
+
+		$scope.torrent.store.consumeFile(path, bytes, function(data) {
+		    if (data.byteLength > 0) {
+			try {
+			    buf.append(data);
+			    bytes += data.byteLength;
+			} catch (e) {
+			    console.error("SourceBuffer append", e);
+			    // HACK: brute-force
+			    bytes++;
+			}
+			loop();
+		    } else
+			src.endOfStream();
+		});
+	    }
+	    loop();
+	});
+    };
     $scope.saveButton = function(path) {
-	if (!path) {
-	    path = [$scope.torrent.name];
-	}
 	var size = $scope.torrent.files.filter(function(file) {
 	    return file.path == path;
 	}).map(function(file) {
@@ -138,6 +172,9 @@ app.controller('TorrentController', function($scope) {
 	    type: 'saveFile',
 	    suggestedName: path[path.length - 1]
 	}, function(entry) {
+	    if (!entry)
+		return;
+
 	    entry.createWriter(function(writer) {
 		writer.truncate(0);
 

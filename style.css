@@ -66,3 +66,10 @@ h1 {
     list-style-type: none;
     font-size: 80%;
 }
+
+.torrent video {
+    margin: 0.5em auto;
+    padding: 0.8em 1em;
+    background-color: black;
+    border-radius: 1em;
+}
