@@ -57,10 +57,10 @@
 	  </canvas>
 	  <ul ng-show="torrent.peers.length > 0"
 	      class="peers">
-	    <li ng-repeat="peer in torrent.peers | filter:{state:'connected'}">
+	    <li ng-repeat="peer in torrent.peers" ng-show="peer.state == 'connected'">
 	      {{peer.ip}}:{{peer.port}}
 	      {{peer.state}} {{peer.error}}
-	      <span ng-show="peer.state == 'connected'">
+	      <span>
 		{{peer.getDonePercent()}}%
 		<span ng-show="peer.choked" style="color: red">C</span>
 		<span ng-hide="peer.choked" style="color: green">U</span>

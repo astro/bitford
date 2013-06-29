@@ -4,6 +4,7 @@ html {
     overflow: auto;
     margin: 0;
     padding: 0.5em 2em;
+    font-family: sans-serif;
     font-size: 90%;
 }
 
