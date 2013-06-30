@@ -81,6 +81,9 @@ TCPSocket.prototype = {
     },
 
     write: function(data) {
+	if (typeof data === 'string')
+	    data = strToUTF8Arr(data);
+
 	Socket.write(this.sockId, data.buffer, function(writeInfo) {
 	    this.writesPending--;
 

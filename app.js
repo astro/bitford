@@ -131,31 +131,40 @@ app.controller('TorrentController', function($scope) {
 	    return file.size;
 	})[0];
 
-	var src = new MediaSource_();
-	$scope.playingURL = window.URL.createObjectURL(src);
-	src.addEventListener('webkitsourceopen', function(ev) {
-	    var buf = src.addSourceBuffer("*/*");
+	$scope.playingURL = "http://localhost:8080/video" + Math.ceil(10000 * Math.random()) + ".mp4";
+	createHTTPServer(8080, function(req, res) {
+	    var m, start, end;
+	    if ((m = (req.headers["Range"] + "").match(/^bytes=(\d*)-(\d*)/))) {
+		start = parseInt(m[1], 10);
+		end = parseInt(m[2], 10);
+	    }
+	    console.log("start", start, "end", end);
+	    if (typeof start !== 'number')
+		res.writeHead(200, "OK", {
+		    "Content-Type": "video/mp4"
+		});
+	    else
+		res.writeHead(206, "Partial content", {
+		    "Content-Type": "video/mp4",
+		    "Content-Range": "bytes " + (start || "") + "-" + (end || "") + "/*"
+		});
 
-	    var bytes = 0;
+	    var bytes = start;
 	    function loop() {
-		if (bytes >= size) {
-		    src.endOfStream();
+		if (bytes >= size || bytes >= end) {
+		    res.end();
 		    return;
 		}
 
 		$scope.torrent.store.consumeFile(path, bytes, function(data) {
 		    if (data.byteLength > 0) {
-			try {
-			    buf.append(data);
-			    bytes += data.byteLength;
-			} catch (e) {
-			    console.error("SourceBuffer append", e);
-			    // HACK: brute-force
-			    bytes++;
-			}
+			console.log("res.write", data.byteLength);
+			res.write(new Uint8Array(data));
+			bytes += data.byteLength;
+
 			loop();
 		    } else
-			src.endOfStream();
+			res.end();
 		});
 	    }
 	    loop();

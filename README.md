@@ -1,6 +1,7 @@
 ## Roadmap
 
-* Media Source
+* Keep file & filewriter refs
+* HTTP server for streaming
 * Collect throughput
 * Multifile testing
 * Tracker stats
