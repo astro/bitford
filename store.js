@@ -47,14 +47,29 @@ Store.prototype = {
     },
 
     nextToDownload: function(peer) {
-	for(var i = 0; i < this.pieces.length; i++) {
-	    var piece = this.pieces[i];
+	var readahead = 0;
+	var eligiblePieces = this.pieces.filter(function(piece) {
+	    if (piece.valid)
+		return false;
+	    if (piece.onValidCbs.length > 0) {
+		readahead = 3;
+		return true;
+	    } else if (readahead > 0) {
+		readahead--;
+		return true;
+	    } else
+		return false;
+	});
+	if (eligiblePieces.length == 0)
+	    eligiblePieces = this.pieces;
+
+	for(var i = 0; i < eligiblePieces.length; i++) {
+	    var piece = eligiblePieces[i];
 	    var chunk = piece.state !== 'valid' &&
-		peer.has(i) &&
+		peer.has(piece.pieceNumber) &&
 		piece.nextToDownload(peer);
 	    if (chunk) {
-		chunk.piece = i;
-		// console.log("nextToDownload", chunk);
+		chunk.piece = piece.pieceNumber;
 		return chunk;
 	    }
 	}
@@ -354,7 +369,7 @@ StorePiece.prototype = {
 
     write: function(offset, data, cb) {
 	if (this.valid) {
-	    console.warn("Attempting to write to valid piece!");
+	    console.warn("Attempting to write to valid piece", this.pieceNumber);
 	    return;
 	}
 	var canHash = this.canHash.bind(this);
@@ -389,8 +404,10 @@ StorePiece.prototype = {
 	console.log("addOnValid", this.valid, this.pieceNumber);
 	if (this.valid)
 	    cb();
-	else
+	else {
 	    this.onValidCbs.push(cb);
+	    this.store.onPieceMissing(this.pieceNumber);
+	}
     }
 };
 
