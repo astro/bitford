@@ -68,9 +68,13 @@ h1 {
     font-size: 80%;
 }
 
+.torrent .video-container {
+    margin: 0 auto;
+}
 .torrent video {
-    margin: 0.5em auto;
+    margin: 0.5em 0;
     padding: 0.8em 1em;
     background-color: black;
     border-radius: 1em;
+    max-width: 70%;
 }

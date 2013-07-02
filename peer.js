@@ -5,7 +5,7 @@ function Peer(torrent, info) {
     this.direction = 'outgoing';
     this.buffer = new BufferList();
     this.requestedChunks = [];
-    this.inflightThreshold = 20;
+    this.inflightThreshold = 10;
     this.inPiecesProcessing = 0;
     // We in them
     this.interesting = false;
@@ -287,8 +287,30 @@ Peer.prototype = {
 	    var chunk = this.torrent.store.nextToDownload(this);
 	    if (chunk)
 		this.request(chunk);
-	    else
-		break;
+	    else {
+		/* Work stealing */
+		var maxReqs = 0, maxReqsIdx = null;
+		for(var i = 0; i < this.torrent.peers.length; i++) {
+		    var reqs = this.torrent.peers[i].requestedChunks.length;
+		    if (reqs > maxReqs) {
+			maxReqs = reqs;
+			maxReqsIdx = i;
+		    }
+		}
+		if (maxReqs > 0 && maxReqs >= 2 *  this.requestedChunks.length) {
+		    var peer = this.torrent.peers[maxReqsIdx];
+		    console.log("peer", peer.ip, "has max reqs:", maxReqs);
+		    chunk = peer.requestedChunks.pop();
+		    peer.sendCancel(chunk.piece, chunk.offset, chunk.length);
+		    if (chunk) {
+			console.log(this.ip, "stole from", peer.ip, ":", chunk);
+			chunk.peer = this;
+			this.request(chunk);
+		    } else
+			break;
+		} else
+		    break;
+	    }
 	}
     },
 
@@ -304,19 +326,14 @@ Peer.prototype = {
 	    (length >> 24) & 0xff, (length >> 16) & 0xff, (length >> 8) & 0xff, length & 0xff
 	]));
 
-	var delay = this.minDelay || 1000;
+	var delay = this.minDelay || 500;
 	chunk.timeout = setTimeout(function() {
 	    console.log(this.ip, "chunk timeout", chunk.piece, ":", chunk.offset);
 	    chunk.timeout = null;
 
 	    /* Cancel */
-	    this.sendLength(13);
-	    this.sock.write(new Uint8Array([
-	    	8,
-	    	(piece >> 24) & 0xff, (piece >> 16) & 0xff, (piece >> 8) & 0xff, piece & 0xff,
-	    	(offset >> 24) & 0xff, (offset >> 16) & 0xff, (offset >> 8) & 0xff, offset & 0xff,
-	    	(length >> 24) & 0xff, (length >> 16) & 0xff, (length >> 8) & 0xff, length & 0xff
-	    ]));
+	    this.sendCancel(piece, offset, length);
+
 	    if (this.minDelay) {
 		/* Give some time to still come in */
 		setTimeout(function() {
@@ -324,10 +341,24 @@ Peer.prototype = {
 		    chunk.cancel();
 		}.bind(this), 2 * delay);
 	    } else {
-		/* Discards all in onEnd() */
-		this.sock.end();
+		this.discardRequestedChunks();
+		if (this.sock)
+		    this.sock.end();
 	    }
 	}.bind(this), 1.5 * this.inflightThreshold * delay);
 	this.requestedChunks.push(chunk);
+    },
+
+    sendCancel: function(piece, offset, length) {
+	if (!this.sock)
+	    return;
+
+	this.sendLength(13);
+	this.sock.write(new Uint8Array([
+	    8,
+	    (piece >> 24) & 0xff, (piece >> 16) & 0xff, (piece >> 8) & 0xff, piece & 0xff,
+	    (offset >> 24) & 0xff, (offset >> 16) & 0xff, (offset >> 8) & 0xff, offset & 0xff,
+	    (length >> 24) & 0xff, (length >> 16) & 0xff, (length >> 8) & 0xff, length & 0xff
+	]));
     }
 };

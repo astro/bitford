@@ -52,7 +52,7 @@ Store.prototype = {
 	    if (piece.valid)
 		return false;
 	    if (piece.onValidCbs.length > 0) {
-		readahead = 3;
+		readahead = 2;
 		return true;
 	    } else if (readahead > 0) {
 		readahead--;
@@ -60,6 +60,7 @@ Store.prototype = {
 	    } else
 		return false;
 	});
+	// console.log("eligiblePieces", eligiblePieces);
 	if (eligiblePieces.length == 0)
 	    eligiblePieces = this.pieces;
 
@@ -73,6 +74,7 @@ Store.prototype = {
 		return chunk;
 	    }
 	}
+
 	return null;
     },
 
