@@ -32,6 +32,7 @@ function Store(files, pieceHashes, pieceLength) {
 	}
 	this.pieces.push(new StorePiece(this, this.pieces.length, chunks, pieceHashes[this.pieces.length]));
     }
+    this.fileEntries = {};
 
     /* TODO: start hashing */
 }
@@ -97,7 +98,7 @@ Store.prototype = {
     },
 
     /* walks path parts asynchronously */
-    withFileEntry: function(parts, cb) {
+    getFileEntry: function(parts, cb) {
 	requestFileSystem_(window.PERSISTENT, 0, function(fs) {
 	    var dir = fs.root, partIdx = 0;
 	    function walkParts() {
@@ -120,6 +121,20 @@ Store.prototype = {
 	    }
 	    walkParts();
 	});
+    },
+
+    withFileEntry: function(parts, cb) {
+	var id = parts.join("/");
+	var fileEntries = this.fileEntries;
+
+	if (!fileEntries.hasOwnProperty(id)) {
+	    this.getFileEntry(parts, function(entry) {
+		fileEntries[id] = entry;
+		cb(entry);
+	    });
+	} else {
+	    cb(fileEntries[id]);
+	}
     },
 
     readFile: function(path, offset, length, cb) {

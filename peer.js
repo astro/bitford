@@ -5,7 +5,7 @@ function Peer(torrent, info) {
     this.direction = 'outgoing';
     this.buffer = new BufferList();
     this.requestedChunks = [];
-    this.inflightThreshold = 4;
+    this.inflightThreshold = 20;
     this.inPiecesProcessing = 0;
     // We in them
     this.interesting = false;
@@ -105,6 +105,7 @@ Peer.prototype = {
 		this.sock.write(new Uint8Array([2]));  /* Interested */
 	    } else if (this.state === 'connected' && !this.messageSize && this.buffer.length >= 4) {
 		this.messageSize = this.buffer.getWord32BE(0);
+		// console.log(this.ip, "messageSize", this.messageSize);
 		this.buffer.take(4);
 	    } else if (this.state === 'connected' && this.messageSize && this.buffer.length >= this.messageSize) {
 		var msgData = this.buffer.getBufferList(0, this.messageSize);
@@ -171,7 +172,7 @@ Peer.prototype = {
     },
 
     onPiece: function(piece, offset, data) {
-	// console.log(this.ip, "onPiece", piece, offset);
+	// console.log(this.ip, "onPiece", piece, offset, data.length);
 	this.inPiecesProcessing++;
 	if (this.inPiecesProcessing >= this.inflightThreshold)
 	    /* Back-pressure but with allowance to buffer up in the store */

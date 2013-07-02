@@ -125,50 +125,71 @@ app.controller('TorrentController', function($scope) {
     tick();
 
     $scope.playButton = function(path) {
+	if ($scope.playingURL) {
+	    $scope.playingURL = null;
+	    return;
+	}
+
 	var size = $scope.torrent.files.filter(function(file) {
-	    return file.path == path;
+	    return arrayEq(file.path, path);
 	}).map(function(file) {
 	    return file.size;
 	})[0];
 
-	$scope.playingURL = "http://localhost:8080/video" + Math.ceil(10000 * Math.random()) + ".mp4";
 	createHTTPServer(8080, function(req, res) {
 	    var m, start, end;
 	    if ((m = (req.headers["Range"] + "").match(/^bytes=(\d*)-(\d*)/))) {
 		start = parseInt(m[1], 10);
 		end = parseInt(m[2], 10);
+		if (end)
+		    end++;
+		else
+		    end = size;
 	    }
 	    console.log("start", start, "end", end);
 	    if (typeof start !== 'number')
 		res.writeHead(200, "OK", {
-		    "Content-Type": "video/mp4"
+		    "Content-Type": "video/mp4",
+		    "Content-Length": size + ""
 		});
 	    else
 		res.writeHead(206, "Partial content", {
 		    "Content-Type": "video/mp4",
-		    "Content-Range": "bytes " + (start || "") + "-" + (end || "") + "/*"
+		    "Content-Range": "bytes " + (typeof start == 'number' ? start : "") + "-" + (end ? (end - 1) : "") + "/" + size,
+		    "Content-Length": (end - start) + ""
 		});
 
-	    var bytes = start;
+	    var bytes = start || 0;
+	    var looping = false;
 	    function loop() {
+		if (looping)
+		    return;
+		looping = true;
+		console.log("loop", bytes, "/", end, size);
 		if (bytes >= size || bytes >= end) {
 		    res.end();
 		    return;
 		}
 
 		$scope.torrent.store.consumeFile(path, bytes, function(data) {
+		    console.log("consumed", path, bytes, data.byteLength);
 		    if (data.byteLength > 0) {
-			console.log("res.write", data.byteLength);
 			res.write(new Uint8Array(data));
 			bytes += data.byteLength;
-
-			loop();
+			looping = false;
 		    } else
 			res.end();
 		});
 	    }
+	    res.onDrain = loop;
 	    loop();
 	});
+
+	setTimeout(function() {
+	    $scope.$apply(function() {
+		$scope.playingURL = "http://localhost:8080/video" + Math.ceil(10000 * Math.random()) + ".mp4";
+	    });
+	}, 100);
     };
     $scope.saveButton = function(path) {
 	var size = $scope.torrent.files.filter(function(file) {

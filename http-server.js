@@ -1,5 +1,6 @@
 function createHTTPServer(port, cb) {
     createTCPServer("::", 8080, function(sock) {
+	console.log("new http server sock", sock);
 	new HTTPServer(sock, cb);
     });
 }
@@ -8,9 +9,11 @@ function HTTPServer(sock, cb) {
     this.sock = sock;
     this.cb = cb;
     sock.onData = this.processData.bind(this);
+    sock.onDrain = this.onDrain.bind(this);
     // TODO: request timeout
     this.buffer = new BufferList();
     this.state = 'request';
+    this.currentRes = null;
 }
 
 HTTPServer.prototype = {
@@ -65,25 +68,39 @@ HTTPServer.prototype = {
 	    httpVersion: this.httpVersion,
 	    headers: this.headers
 	};
+	var contentLength;
 	var res = {
-	    writeHead: this.writeHead.bind(this),
+	    writeHead: function(status, reason, headers) {
+		if (headers.hasOwnProperty("Content-Length")) {
+		    contentLength = parseInt(headers["Content-Length"], 10);
+		} else {
+		    headers['Transfer-Encoding'] = 'chunked';
+		}
+		this.writeHead(status, reason, headers);
+	    }.bind(this),
 	    write: function(data) {
-		console.log("byteLength", data.byteLength, data.byteLength.toString(16));
-		this.sock.write(data.byteLength.toString(16) + "\r\n");
-		this.sock.write(data);
-		this.sock.write("\r\n");
-		// TODO: flow control
+		if (typeof contentLength == 'number') {
+		    this.sock.write(data);
+		    contentLength -= data.byteLength;
+		} else {
+		    this.sock.write(data.byteLength.toString(16) + "\r\n");
+		    this.sock.write(data);
+		    this.sock.write("\r\n");
+		}
 	    }.bind(this),
 	    end: function() {
-		this.sock.write("0\r\n\r\n");
+		if (typeof contentLength != 'number')
+		    this.sock.write("0\r\n\r\n");
 		this.sock.end();
-	    }.bind(this)
+		this.currentRes = null;
+	    }.bind(this),
+	    onDrain: null
 	};
+	this.currentRes = res;
 	this.cb(req, res);
     },
 
     writeHead: function(status, reason, headers) {
-	headers['Transfer-Encoding'] = 'chunked';
 	headers['Connection'] = 'close';
 
 	var lines = ["HTTP/1.0 " + status + " " + reason];
@@ -93,5 +110,10 @@ HTTPServer.prototype = {
 	lines.push("");
 	lines.push("");
 	this.sock.write(lines.join("\r\n"));
+    },
+
+    onDrain: function() {
+	if (this.currentRes && this.currentRes.onDrain)
+	    this.currentRes.onDrain();
     }
 };

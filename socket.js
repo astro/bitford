@@ -12,13 +12,18 @@ function createTCPServer(host, port, cb) {
     Socket.create('tcp', {}, function(createInfo) {
 	var sockId = createInfo.socketId;
 	Socket.listen(sockId, host, port, backlog, function(res) {
+	    function loop() {
 	    Socket.accept(sockId, function(acceptInfo) {
 		var sockId = acceptInfo.socketId;
-		if (sockId)
+		if (sockId) {
 		    var sock = new TCPSocket(sockId);
 		    cb(sock);
 		    sock.read();
+		}
+		loop();
 	    });
+	    }
+	    loop();
 	});
     });
 }
@@ -81,10 +86,17 @@ TCPSocket.prototype = {
     },
 
     write: function(data) {
+	if (!this.sockId)
+	    return;
+
 	if (typeof data === 'string')
 	    data = strToUTF8Arr(data);
 
 	Socket.write(this.sockId, data.buffer, function(writeInfo) {
+	    if (writeInfo.bytesWritten < 0) {
+		console.error("Write to socket", this.sockId, ":", writeInfo.bytesWritten);
+		return this.end();
+	    }
 	    this.writesPending--;
 
 	    if (this.writesPending < 1) {
