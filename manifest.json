@@ -18,6 +18,16 @@
     "app": {
 	"background": {
 	    "scripts": [
+		"digest.js",
+		"base64.js",
+		"socket.js",
+		"bufferlist.js",
+		"benc.js",
+		"torrent.js",
+		"tracker.js",
+		"peer.js",
+		"store.js",
+		"http-server.js",
 		"background.js"
 	    ],
 	    "persistent": false

@@ -169,7 +169,7 @@ Store.prototype = {
 		    setTimeout(/*that.readFile.bind(that, path, offset, length, cb)*/function() {
 console.log("retrying", path, offset, length);
 that.readFile(path,offset,length,cb);
-}, 1000);
+}, 1);
 		};
 		reader.readAsArrayBuffer(file.slice(offset, offset + length));
 	    });
@@ -323,7 +323,7 @@ StorePiece.prototype = {
 		    if (data.length > 0) {
 			this.canHash(offset, data);
 		    } else {
-			console.warn("cannotHash", this.pieceNumber, ":", offset, "+", len);
+			console.warn("cannotHash", this.pieceNumber, ":", this.chunks[i]);
 			chunk.state = 'missing';
 			this.store.onPieceMissing(this.pieceNumber);
 		    }

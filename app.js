@@ -3,7 +3,9 @@
 var app = angular.module('Bitford', []);
 
 app.service('Torrents', function() {
-    return [];
+    var torrents = [];
+    var port = chrome.runtime.connect();
+    return torrents;
 });
 
 app.controller('LoadController', function($scope, Torrents) {
@@ -17,23 +19,11 @@ app.controller('LoadController', function($scope, Torrents) {
 	    }]
 	}, function(entry) {
 	    entry.file(function(file) {
-		var reader = new FileReader();
-		reader.onload = function() {
+		chrome.runtime.sendMessage({
+		    loadTorrent: file
+		}, function(response) {
 		    // TODO: handle load & parse errors?
-		    var torrentMeta = BEnc.parse(reader.result);
-		    console.log("meta", torrentMeta);
-		    /* Calc infoHash */
-		    var sha1 = new Digest.SHA1();
-		    var infoParts = BEnc.encodeParts(torrentMeta.info);
-		    infoParts.forEach(sha1.update.bind(sha1));
-		    torrentMeta.infoHash = new Uint8Array(sha1.finalize());
-
-		    var torrent = new Torrent(torrentMeta);
-		    // TODO: infoHash collision?
-		    Torrents.push(torrent);
-		    console.log("Torrents", Torrents);
-		};
-		reader.readAsArrayBuffer(file);
+		});
 	    });
 	});
     };
