@@ -2,13 +2,7 @@
 
 var app = angular.module('Bitford', []);
 
-app.service('Torrents', function() {
-    var torrents = [];
-    var port = chrome.runtime.connect();
-    return torrents;
-});
-
-app.controller('LoadController', function($scope, Torrents) {
+app.controller('LoadController', function($scope) {
     $scope.loadFile = function(file) {
 	chrome.fileSystem.chooseEntry({
 	    type: 'openFile',
@@ -19,10 +13,13 @@ app.controller('LoadController', function($scope, Torrents) {
 	    }]
 	}, function(entry) {
 	    entry.file(function(file) {
-		chrome.runtime.sendMessage({
-		    loadTorrent: file
-		}, function(response) {
-		    // TODO: handle load & parse errors?
+		// chrome.runtime.sendMessage({
+		//     loadTorrent: file
+		// }, function(response) {
+		//     // TODO: handle load & parse errors?
+		// });
+		chrome.runtime.getBackgroundPage(function(background) {
+		    background.loadTorrent(file);
 		});
 	    });
 	});
@@ -38,7 +35,7 @@ app.directive('piecesCanvas', function() {
 		if (!pieces)
 		    return;
 		var pieceLength = $scope.torrent.store.pieceLength;
-		element.attr('width', 3 * Math.ceil(pieceLength / CHUNK_LENGTH));
+		element.attr('width', 3 * Math.ceil(pieceLength / 32768));
 		element.attr('height', Math.min(3 * pieces.length, 1024));
 		var canvas = element[0];
 		var ctx = canvas.getContext('2d');
@@ -85,10 +82,12 @@ app.directive('piecesCanvas', function() {
     };
 });
 
-app.controller('TorrentsController', function($scope, Torrents) {
+app.controller('TorrentsController', function($scope) {
+    chrome.runtime.getBackgroundPage(function(background) {
+	$scope.torrents = background.torrents;
+    });
     setInterval(function() {
 	$scope.$apply(function() {
-	    $scope.torrents = Torrents;
 	});
     }, 100);
 });

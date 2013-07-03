@@ -6,6 +6,7 @@ chrome.app.runtime.onLaunched.addListener(function(launchData) {
     });
 });
 
+var torrents = [];
 
 function loadTorrent(file, sendResponse) {
     var reader = new FileReader();
@@ -20,7 +21,7 @@ function loadTorrent(file, sendResponse) {
 
 	    var torrent = new Torrent(torrentMeta);
 	    // TODO: infoHash collision?
-	    Torrents.push(torrent);
+	    torrents.push(torrent);
 	    console.log("Torrents", Torrents);
 	    sendResponse("");
     };
