@@ -9,6 +9,7 @@
 * Seeding
 * Truncating/Hashing on existing files?
 * Stopping & removing torrents
+* Session restore + clean-up unused files
 
 ## Unsolved
 
