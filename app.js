@@ -13,11 +13,6 @@ app.controller('LoadController', function($scope) {
 	    }]
 	}, function(entry) {
 	    entry.file(function(file) {
-		// chrome.runtime.sendMessage({
-		//     loadTorrent: file
-		// }, function(response) {
-		//     // TODO: handle load & parse errors?
-		// });
 		chrome.runtime.getBackgroundPage(function(background) {
 		    background.loadTorrent(file);
 		});

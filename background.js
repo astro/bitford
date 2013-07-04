@@ -8,7 +8,7 @@ chrome.app.runtime.onLaunched.addListener(function(launchData) {
 
 var torrents = [];
 
-function loadTorrent(file, sendResponse) {
+function loadTorrent(file) {
     var reader = new FileReader();
     reader.onload = function() {
 	    var torrentMeta = BEnc.parse(reader.result);
@@ -22,31 +22,9 @@ function loadTorrent(file, sendResponse) {
 	    var torrent = new Torrent(torrentMeta);
 	    // TODO: infoHash collision?
 	    torrents.push(torrent);
-	    sendResponse("");
     };
     reader.readAsArrayBuffer(file);
 }
-
-chrome.runtime.onMessage.addListener(function(msg, sender, sendResponse) {
-    console.log("onMessage", msg, sender, sendResponse);
-    if (msg.loadTorrent) {
-	loadTorrent(msg.loadTorrent, sendResponse);
-    }
-});
-
-var ports = [];
-chrome.runtime.onConnect.addListener(function(port) {
-    console.log("port connected", port);
-    ports.push(port);
-    port.onMessage.addListener(function(msg, sender, sendResponse) {
-    });
-    port.onDisconnect.addListener(function() {
-	ports = ports.filter(function(port1) {
-	    return port === port1;
-	});
-    });
-});
-
 
 
 	createHTTPServer(8080, function(req, res) {
