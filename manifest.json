@@ -30,9 +30,10 @@
 		"peer.js",
 		"store.js",
 		"http-server.js",
+		"http-stream.js",
 		"background.js"
 	    ],
-	    "persistent": false
+	    "persistent": true
 	}
     },
     "file_handlers": {
