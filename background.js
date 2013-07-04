@@ -32,6 +32,7 @@ function loadTorrent(file) {
 	    while(path[0] === "")
 		path.shift();
 
+	    var contentType = getMimeType(path);
 	    var size;
 	    for(var i = 0; i < torrents.length; i++) {
 		var torrent = torrents[i];
@@ -57,12 +58,12 @@ function loadTorrent(file) {
 		console.log("start", start, "end", end);
 		if (typeof start !== 'number')
 		    res.writeHead(200, "OK", {
-			"Content-Type": "video/mp4",
+			"Content-Type": contentType,
 			"Content-Length": size + ""
 		    });
 		else
 		    res.writeHead(206, "Partial content", {
-			"Content-Type": "video/mp4",
+			"Content-Type": contentType,
 			"Content-Range": "bytes " + (typeof start == 'number' ? start : "") + "-" + (end ? (end - 1) : "") + "/" + size,
 			"Content-Length": (end - start) + ""
 		    });

@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <title>Bitford</title>
     <script src="angular.js"></script>
+    <script src="mime.js"></script>
     <script src="app.js"></script>
     <link rel="stylesheet" type="text/css" href="style.css">
   </head>
@@ -24,7 +25,7 @@
 	<div ng-show="show">
 	  <div>
 	    <button ng-hide="isMultiFile" ng-click="saveButton([torrent.name])" ng-disabled="saving">Save</button>
-	    <button ng-hide="isMultiFile" ng-click="playButton([torrent.name])">Play</button>
+	    <button ng-hide="isMultiFile || !canPlay(torrent.name)" ng-click="playButton([torrent.name])">Play</button>
 	    <button disabled>Remove</button>
 	  </div>
 	  <ul class="files" ng-show="isMultiFile">
@@ -32,15 +33,19 @@
 	      <h3>{{file.path.join("/")}}</h3>
 	      <p class="size">{{humanSize(file.size)}}</p>
 	      <button ng-click="saveButton(file.path)" ng-disabled="saving">Save</button>
-	      <button>Play</button>
+	      <button ng-show="canPlay(file.path)">Play</button>
 	    </li>
 	  </ul>
 
-	  <div ng-show="playingURL" class="video-container">
-	    <video controls autoplay
-		   src="{{playingURL}}"
-		   type="video/mp4" />
+	  <div ng-show="videoURL || audioURL" class="video-container">
+	    <video ng-show="videoURL"
+	           controls autoplay
+		   src="{{videoURL}}">
 	    </video>
+	    <audio ng-show="audioURL"
+	           controls autoplay
+		   src="{{audioURL}}">
+	    </audio>
 	  </div>
 
 	  <canvas ng-show="torrent.peers.length > 0"

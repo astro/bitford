@@ -108,18 +108,24 @@ app.controller('TorrentController', function($scope) {
     }
     tick();
 
+    $scope.canPlay = function(path) {
+	var mimeType = getMimeType(path);
+	// TODO: determine support
+	return /^video\//.test(mimeType) || /^audio\//.test(mimeType);
+    };
     $scope.playButton = function(path) {
-	if ($scope.playingURL) {
-	    $scope.playingURL = null;
+	if ($scope.videoURL || $scope.audioURL) {
+	    $scope.videoURL = null;
+	    $scope.audioURL = null;
 	    return;
 	}
 
-
-	setTimeout(function() {
-	    $scope.$apply(function() {
-		$scope.playingURL = "http://localhost:8080/" + path.join("/");
-	    });
-	}, 100);
+	var mimeType = getMimeType(path);
+	var url = "http://localhost:8080/" + path.join("/");
+	if (/^video\//.test(mimeType))
+	    $scope.videoURL = url;
+	else if (/^audio\//.test(mimeType))
+	    $scope.audioURL = url;
     };
     $scope.saveButton = function(path) {
 	var size = $scope.torrent.files.filter(function(file) {

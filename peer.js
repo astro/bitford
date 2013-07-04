@@ -297,7 +297,7 @@ Peer.prototype = {
 			maxReqsIdx = i;
 		    }
 		}
-		if (maxReqs > 0 && maxReqs >= 2 *  this.requestedChunks.length) {
+		if (maxReqs > 0 && maxReqs >= 2 * this.requestedChunks.length) {
 		    var peer = this.torrent.peers[maxReqsIdx];
 		    console.log("peer", peer.ip, "has max reqs:", maxReqs);
 		    chunk = peer.requestedChunks.pop();

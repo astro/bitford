@@ -13,17 +13,20 @@ function createTCPServer(host, port, cb) {
 	var sockId = createInfo.socketId;
 	Socket.listen(sockId, host, port, backlog, function(res) {
 	    function loop() {
-	    Socket.accept(sockId, function(acceptInfo) {
-		var sockId = acceptInfo.socketId;
-		if (sockId) {
-		    var sock = new TCPSocket(sockId);
-		    cb(sock);
-		    sock.read();
-		}
-		loop();
-	    });
+		Socket.accept(sockId, function(acceptInfo) {
+		    var sockId = acceptInfo.socketId;
+		    if (sockId) {
+			var sock = new TCPSocket(sockId);
+			cb(sock);
+			sock.read();
+		    }
+		    loop();
+		});
 	    }
-	    loop();
+	    if (res >= 0)
+		loop();
+	    else
+		console.error("Cannot listen on", host, ":", port, ":", res);
 	});
     });
 }
