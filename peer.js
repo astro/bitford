@@ -7,6 +7,7 @@ function Peer(torrent, info) {
     this.requestedChunks = [];
     this.inflightThreshold = 10;
     this.inPiecesProcessing = 0;
+    this.rate = new RateEstimator();
     // We in them
     this.interesting = false;
     this.choking = true;
@@ -79,6 +80,7 @@ Peer.prototype = {
 	if (data.byteLength < 1)
 	    return;
 	this.buffer.append(data);
+	this.rate.add(data.byteLength);
 
 	var fail = function(msg) {
 	    this.sock.end();
@@ -122,7 +124,7 @@ Peer.prototype = {
     },
 
     handleMessage: function(data) {
-	// console.log(this.ip, "handleMessage", data.getByte(0), data.length);
+	console.log(this.ip, "handleMessage", data.getByte(0), data.length);
 	var piece;
 	switch(data.getByte(0)) {
 	    case 0:
@@ -200,7 +202,7 @@ Peer.prototype = {
 	    }
 
 	    /* Write & resume */
-	    this.torrent.store.write(piece, offset, data, onProcessed);
+	    this.torrent.recvData(piece, offset, data, onProcessed);
 	} else {
 	    console.warn("Received unexpected piece", piece, offset, data.length);
 	    onProcessed();

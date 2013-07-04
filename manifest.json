@@ -24,6 +24,7 @@
 		"bufferlist.js",
 		"benc.js",
 		"mime.js",
+		"rate.js",
 		"torrent.js",
 		"tracker.js",
 		"peer.js",

@@ -21,7 +21,11 @@
 	       ng-controller="TorrentController"
 	       class="torrent">
 	<h2 ng-click="toggleShow()">{{torrent.name}}</h2>
-	<p class="size">{{torrent.store.getDonePercent()}}% of {{humanSize(torrent.store.size)}}</p>
+	<p class="size">
+	  {{torrent.store.getDonePercent()}}%
+	  of {{humanSize(torrent.store.size)}}
+	  at {{humanSize(torrent.rate.getRate())}}/s
+	</p>
 	<div ng-show="show">
 	  <div>
 	    <button ng-hide="isMultiFile" ng-click="saveButton([torrent.name])" ng-disabled="saving">Save</button>
@@ -66,7 +70,11 @@
 		<span ng-show="peer.interesting" style="color: blue">I!</span>
 		<span ng-hide="peer.interesting" style="color: #ccc">N!</span>
 		<span ng-show="peer.state == 'connected'">
-		  {{round(peer.minDelay)}} ms, req {{peer.requestedChunks.length}}/{{peer.inflightThreshold}}, proc {{peer.inPiecesProcessing}}, {{peer.buffer.length}} buffer
+		  {{round(peer.minDelay)}} ms, req
+		  {{peer.requestedChunks.length}}/{{peer.inflightThreshold}},
+		  proc {{peer.inPiecesProcessing}},
+		  {{peer.buffer.length}} buffer
+		  at {{humanSize(peer.rate.getRate())}}/s
 		</span>
 	      </span>
 	    </li>

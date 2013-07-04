@@ -4,6 +4,7 @@ function Torrent(meta) {
     this.pieces = Math.floor(meta.info.pieces.byteLength / 20);
     this.infoHash = meta.infoHash;
     this.peerId = "-BF000-xxxxxxxxxxxxx";
+    this.rate = new RateEstimator();
     this.peers = [];
     var pieceLength;
     if (typeof meta.info['piece length'] == 'number')
@@ -66,6 +67,11 @@ Torrent.prototype = {
     getBitfield: function() {
 	var result = new Uint8Array(Math.ceil(this.pieces / 8));
 	return result;
+    },
+
+    recvData: function(piece, offset, data, cb) {
+	this.rate.add(data.length);
+	this.store.write(piece, offset, data, cb);
     },
 
     onPieceMissing: function(pieceNumber) {

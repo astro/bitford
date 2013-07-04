@@ -187,8 +187,10 @@ function humanSize(size) {
         size /= 1024;
         units.shift();
     }
-    if (size < 1000) {
-        return Math.round(size * 1000) / 1000 + " " + units[0];
+    if (size < 10) {
+        return Math.round(size * 100) / 100 + " " + units[0];
+    } else if (size < 100) {
+        return Math.round(size * 10) / 10 + " " + units[0];
     } else {
         return Math.round(size) + " " + units[0];
     }

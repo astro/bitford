@@ -1,9 +1,7 @@
 ## Roadmap
 
 * Keep file & filewriter refs
-* HTTP server for streaming
 * Collect throughput
-* Multifile testing
 * Tracker stats
 * Priorities & shaping
 * Seeding
@@ -21,9 +19,9 @@
   * Connect rate
   * by IP
   * Upload slots
-* Game over: work stealing
 * Throttling
 * UDP trackers
+* Extension protocol
 
 * Magnet Links
 * DHT
