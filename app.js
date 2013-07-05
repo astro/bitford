@@ -84,7 +84,7 @@ app.controller('TorrentsController', function($scope) {
     setInterval(function() {
 	$scope.$apply(function() {
 	});
-    }, 100);
+    }, 500);
 });
 
 var MediaSource_ = window.MediaSource ||

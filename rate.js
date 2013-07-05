@@ -4,7 +4,7 @@ function RateEstimator() {
 }
 
 RateEstimator.prototype = {
-    interval: 5000,
+    interval: 1000,
 
     clean: function() {
 	var now = Date.now();
