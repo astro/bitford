@@ -34,6 +34,12 @@ function Store(files, pieceHashes, pieceLength) {
     }
     this.fileEntries = {};
 
+    this.sha1Worker = new Worker("sha1-worker.js");
+    this.sha1Worker.onmessage = function(ev) {
+	var finalized = ev.data.finalized;
+	if (finalized)
+	    this.pieces[finalized.index].onSHA1Finalized(finalized.hash);
+    }.bind(this);
     /* TODO: start hashing */
 }
 Store.prototype = {
@@ -260,12 +266,16 @@ StorePiece.prototype = {
 	    data.take(this.sha1pos - offset);
 	}
 	// console.log("piece", this.store.pieces.indexOf(this), "canHash", offset, this.sha1pos);
-	if (!this.sha1)
-	    this.sha1 = new Digest.SHA1();
-	var sha1 = this.sha1;
 	data.buffers.forEach(function(buf) {
-	    sha1.update(buf);
 	    this.sha1pos += buf.byteLength;
+	    // TODO: move these internals to Store?
+	    this.store.sha1Worker.postMessage({
+		update: {
+		    index: this.pieceNumber,
+		    data: buf
+		}
+	    }, [buf]);
+	    /* buf is neutered here, don't reuse data */
 	}.bind(this));
 
 	var chunk;
@@ -280,29 +290,12 @@ StorePiece.prototype = {
 	}
 	if (i >= this.chunks.length) {
 	    /* No piece followed, validate hash */
-	    var hash = new Uint8Array(this.sha1.finalize());
-	    this.sha1 = null;
-
-	    var valid = true;
-	    for(var i = 0; i < 20; i++)
-		valid = valid && (hash[i] === this.expectedHash[i]);
-	    this.valid = valid;
-	    if (!valid) {
-		console.warn("Invalid piece", this.pieceNumber, ":", hash, "<>", this.expectedHash);
-		this.sha1pos = 0;
-		for(i = 0; i < this.chunks.length; i++) {
-		    if (this.chunks[i].state == 'valid')
-			this.chunks[i].state = 'missing';
+	    // TODO: move these internals to Store?
+	    this.store.sha1Worker.postMessage({
+		finalize: {
+		    index: this.pieceNumber
 		}
-		this.store.onPieceMissing(this.pieceNumber);
-	    } else {
-		this.store.onPieceValid(this.pieceNumber);
-		var onValidCbs = this.onValidCbs;
-		this.onValidCbs = [];
-		onValidCbs.forEach(function(cb) {
-		    cb();
-		});
-	    }
+	    });
 	} else
 	    this.continueHashing();
     },
@@ -332,6 +325,36 @@ StorePiece.prototype = {
 	    } else if (start < 0) {
 		console.log("cannot Hash", this.chunks, this.sha1pos);
 	    }
+	}
+    },
+
+    onSHA1Finalized: function(hash) {
+	hash = new Uint8Array(hash);
+	this.sha1 = null;
+
+	var valid = true;
+	for(var i = 0; i < 20; i++)
+	    valid = valid && (hash[i] === this.expectedHash[i]);
+	this.valid = valid;
+
+	if (!valid) {
+	    /* Hash corrupt: invalidate */
+	    console.warn("Invalid piece", this.pieceNumber, ":", hash, "<>", this.expectedHash);
+
+	    this.sha1pos = 0;
+	    for(i = 0; i < this.chunks.length; i++) {
+		if (this.chunks[i].state == 'valid')
+		    this.chunks[i].state = 'missing';
+	    }
+	    this.store.onPieceMissing(this.pieceNumber);
+	} else {
+	    /* Hash checked: validate */
+	    this.store.onPieceValid(this.pieceNumber);
+	    var onValidCbs = this.onValidCbs;
+	    this.onValidCbs = [];
+	    onValidCbs.forEach(function(cb) {
+		cb();
+	    });
 	}
     },
 

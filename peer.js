@@ -124,7 +124,7 @@ Peer.prototype = {
     },
 
     handleMessage: function(data) {
-	console.log(this.ip, "handleMessage", data.getByte(0), data.length);
+	// console.log(this.ip, "handleMessage", data.getByte(0), data.length);
 	var piece;
 	switch(data.getByte(0)) {
 	    case 0:
