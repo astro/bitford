@@ -1,9 +1,8 @@
 ## Roadmap
 
-* Keep file & filewriter refs
-* Collect throughput
 * Tracker stats
 * Priorities & shaping
+* Transition to seeder
 * Seeding
 * Truncating/Hashing on existing files?
 * Stopping & removing torrents

@@ -40,7 +40,35 @@ function Store(files, pieceHashes, pieceLength) {
 	if (finalized)
 	    this.pieces[finalized.index].onSHA1Finalized(finalized.hash);
     }.bind(this);
-    /* TODO: start hashing */
+
+    /* Start hashing existing files */
+    this.hashingQueue = [];
+    for(filesIdx = 0; filesIdx < files.length; filesIdx++) {
+	(function(file) {
+	     this.getFileSize(file.path, function(currentSize) {
+		 console.log("file",file.path,"size",currentSize);
+		 if (!currentSize || currentSize <= 0)
+		     return;
+
+		 this.pieces.forEach(function(piece) {
+		     for(var i = 0; i < piece.chunks.length; i++) {
+			 var chunk = piece.chunks[i];
+			 if (chunk.fileOffset + chunk.length <= currentSize)
+			     chunk.state = 'written';
+			 else
+			     break;
+		     }
+		     console.log("piece",piece.pieceNumber,"i",i);
+		     if (i >= piece.chunks.length)
+			 this.hashingQueue.push(function() {
+			     piece.continueHashing();
+			 });
+		 }.bind(this));
+	    }.bind(this));
+	 }.bind(this))(files[filesIdx]);
+    }
+    /* Allow some time to get the first file size */
+    setTimeout(this.processHashingQueue.bind(this), 500);
 }
 Store.prototype = {
     isInterestedIn: function(peer) {
@@ -82,6 +110,12 @@ Store.prototype = {
 	}
 
 	return null;
+    },
+
+    processHashingQueue: function() {
+	var f = this.hashingQueue.shift();
+	if (f)
+	    f();
     },
 
     getDonePercent: function() {
@@ -194,6 +228,14 @@ that.readFile(path,offset,length,cb);
 		    cb();
 		};
 		writer.write(data.toBlob());
+	    });
+	});
+    },
+
+    getFileSize: function(path, cb) {
+	this.withFileEntry(path, function(entry) {
+	    entry.file(function(file) {
+		cb(file && file.size);
 	    });
 	});
     }
@@ -347,6 +389,7 @@ StorePiece.prototype = {
 		    this.chunks[i].state = 'missing';
 	    }
 	    this.store.onPieceMissing(this.pieceNumber);
+	    this.store.processHashingQueue();
 	} else {
 	    /* Hash checked: validate */
 	    this.store.onPieceValid(this.pieceNumber);
@@ -355,6 +398,7 @@ StorePiece.prototype = {
 	    onValidCbs.forEach(function(cb) {
 		cb();
 	    });
+	    this.store.processHashingQueue();
 	}
     },
 
