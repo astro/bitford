@@ -2,8 +2,12 @@ chrome.app.runtime.onLaunched.addListener(function(launchData) {
     chrome.app.window.create('main.html', {
     	id: 'bitford_main'
     }, function(win) {
-    	win.contentWindow.launchData = launchData;
     });
+
+    if (launchData &&
+	launchData.type === "application/x-bittorrent" &&
+	launchData.data)
+	loadTorrent(launchData.data);
 });
 
 var torrents = [];

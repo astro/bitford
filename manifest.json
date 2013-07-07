@@ -47,6 +47,10 @@
         "http://webintents.org/view" : [{
             "title" : "Start BitTorrent download",
             "type" : ["application/x-bittorrent"]
+        }],
+        "http://webintents.org/save" : [{
+            "title" : "Start BitTorrent download",
+            "type" : ["application/x-bittorrent"]
         }]
     },
     "icons": {
