@@ -1,15 +1,14 @@
 ## Roadmap
 
+* Stopping & removing torrents
 * Seeding
   * send Have
-* Accepting connections
+* TEST: Accepting connections
 * Server port bind retrying
-* Simplify RateEstimator
 * Tracker stats
 * Priorities & shaping
 * Transition to seeder
 * Truncating/Hashing on existing files?
-* Stopping & removing torrents
 * Session restore + clean-up unused files
 
 ## Unsolved
