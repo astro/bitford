@@ -43,7 +43,7 @@ function Torrent(meta) {
 	console.warn("No tracker in torrent file");
 
     // Can defer:
-    this.trackers.forEach(function(tg) { tg.start() });
+    this.trackers.forEach(function(tg) { tg.start(); });
     console.log("Torrent", this);
 
     setInterval(this.canConnectPeer.bind(this), 100);

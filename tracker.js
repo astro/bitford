@@ -13,7 +13,7 @@ TrackerGroup.prototype = {
 	    var peers = response && response.peers;
 	    if (peers && peers.__proto__ && peers.__proto__.constructor === Array) {
 		/* Non-compact IPv4 */
-		peers.forEach(this.torrent.addPeer.bind(torrent));
+		peers.forEach(this.torrent.addPeer.bind(this.torrent));
 	    }
 	    if (peers && peers.__proto__ && peers.__proto__.constructor === Uint8Array) {
 		/* Compact IPv4 */
