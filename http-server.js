@@ -10,6 +10,7 @@ function HTTPServer(sock, cb) {
     this.cb = cb;
     sock.onData = this.processData.bind(this);
     sock.onDrain = this.onDrain.bind(this);
+    sock.resume();
     // TODO: request timeout
     this.buffer = new BufferList();
     this.state = 'request';

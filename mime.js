@@ -18,7 +18,7 @@ function getMimeType(path) {
     if (typeof path !== 'string')
 	path = path[path.length - 1];
 
-    var ps = path.split(".");
+    var ps = (path + "").split(".");
     var result = MIME_TYPES[ps[ps.length - 1].toLowerCase()];
     return result || "application/octet-stream";
 }

@@ -1,5 +1,6 @@
 var Socket = chrome.socket || chrome.experimental.socket;
 
+/* Creates paused sockets */
 function createTCPServer(host, port, cb) {
     if (!cb) {
 	// Shift args
@@ -18,7 +19,6 @@ function createTCPServer(host, port, cb) {
 		    if (sockId) {
 			var sock = new TCPSocket(sockId);
 			cb(sock);
-			sock.read();
 		    }
 		    loop();
 		});
@@ -31,14 +31,13 @@ function createTCPServer(host, port, cb) {
     });
 }
 
+/* Creates paused sockets */
 function connectTCP(host, port, cb) {
     Socket.create('tcp', {}, function(createInfo) {
 	var sockId = createInfo.socketId;
 	var sock = new TCPSocket(sockId);
 	sock.connect(host, port, function(err) {
 	    cb(err, err ? null : sock);
-	    if (sock)
-		sock.read();
 	});
     });
 }
@@ -47,7 +46,7 @@ function connectTCP(host, port, cb) {
 function TCPSocket(sockId) {
     this.sockId = sockId;
     this.writesPending = 0;
-    this.paused = false;
+    this.paused = true;
     this.readPending = false;
     this.drained = true;
 }
@@ -60,6 +59,10 @@ TCPSocket.prototype = {
 	    else
 		cb(new Error("Connect: " + res));
 	});
+    },
+
+    getInfo: function(cb) {
+	chrome.socket.getInfo(this.sockId, cb);
     },
 
     pause: function() {
@@ -80,10 +83,15 @@ TCPSocket.prototype = {
 	    if (readInfo.resultCode < 0)
 		return this.end();
 	    if (readInfo.data && this.onData) {
-		this.onData(readInfo.data);
-		/* onData() could have closed it */
-		if (this.sockId)
-		    this.read();
+		try {
+		    this.onData(readInfo.data);
+		    /* onData() could have closed it */
+		    if (this.sockId)
+			this.read();
+		} catch (e) {
+		    console.error(e.stack || e.message || e);
+		    this.end();
+		}
 	    }
 	}.bind(this));
     },
@@ -124,8 +132,3 @@ TCPSocket.prototype = {
 	delete this.sockId;
     }
 };
-
-createTCPServer(6667, function(sock) {
-    console.log("TCP", sock);
-    sock.write("Hello");
-});

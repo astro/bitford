@@ -10,6 +10,9 @@ chrome.app.runtime.onLaunched.addListener(function(launchData) {
 	loadTorrent(launchData.data);
 });
 
+/**
+ * API
+ */
 var torrents = [];
 
 function loadTorrent(file) {
@@ -29,3 +32,21 @@ function loadTorrent(file) {
     };
     reader.readAsArrayBuffer(file);
 }
+
+/* Peer listener */
+createTCPServer("::", 6881, function(sock) {
+    console.log("new peer server sock", sock);
+    servePeer(sock, function(peer) {
+	for(var i = 0; i < torrents.length; i++) {
+	    if (bufferEq(peer.infoHash, torrents[i].infoHash))
+		break;
+	}
+	if (i < torrents.length) {
+	    torrents[i].peers.push(peer);
+	    peer.torrent = torrents[i];
+	} else {
+	    console.error("incoming", peer.ip, "unknown torrent");
+	    throw "Peer for unknown torrent";
+	}
+    });
+});

@@ -1,3 +1,25 @@
+function servePeer(sock, cb) {
+    sock.getInfo(function(info) {
+	console.log("servePeer", sock, "info", info);
+	try {
+	    var peer = new Peer(null, {
+		ip: info.peerAddress,
+		port: info.peerPort
+	    });
+	    peer.direction = 'incoming';
+	    peer.onHandshaked = function() {
+		cb(peer);
+		peer.sendHandshake();
+	    };
+	    peer.setSock(sock);
+	    peer.state = 'handshake';
+	} catch (e) {
+	    console.error(e);
+	    sock.end();
+	}
+    });
+}
+
 function Peer(torrent, info) {
     this.torrent = torrent;
     this.ip = info.ip;
@@ -17,6 +39,18 @@ function Peer(torrent, info) {
 }
 
 Peer.prototype = {
+    setSock: function(sock) {
+	this.sock = sock;
+	sock.onEnd = function() {
+	    delete this.sock;
+	    this.state = 'disconnected';
+	    this.discardRequestedChunks();
+	}.bind(this);
+	sock.onData = this.onData.bind(this);
+	sock.onDrain = this.onDrain.bind(this);
+	sock.resume();
+    },
+
     connect: function() {
 	this.state = 'connecting';
 	connectTCP(this.ip, this.port, function(error, sock) {
@@ -26,14 +60,7 @@ Peer.prototype = {
 		this.error = error.message || error.toString();
 	    } else {
 		this.state = 'handshake';
-		this.sock = sock;
-		sock.onEnd = function() {
-		    delete this.sock;
-		    this.state = 'disconnected';
-		    this.discardRequestedChunks();
-		}.bind(this);
-		sock.onData = this.onData.bind(this);
-		sock.onDrain = this.onDrain.bind(this);
+		this.setSock(sock);
 		this.sendHandshake();
 	    }
 	}.bind(this));
@@ -83,6 +110,7 @@ Peer.prototype = {
 	this.rate.add(data.byteLength);
 
 	var fail = function(msg) {
+	    console.warn("sock", this.ip, ":", this.port, "fail", msg);
 	    this.sock.end();
 	    this.state = 'error';
 	    this.error = msg;
@@ -94,15 +122,19 @@ Peer.prototype = {
 		    UTF8ArrToStr(new Uint8Array(this.buffer.slice(1, 20))) != "BitTorrent protocol") {
 		    return fail("Handshake mismatch");
 		}
-		for(var i = 0; i < 20; i++) {
-		    if (this.buffer.getByte(20 + 8 + i) != this.torrent.infoHash[i])
-			return fail("InfoHash mismatch");
-		}
-		this.peerId = this.buffer.slice(20 + 8 + 20, 20 + 8 + 20 + 20);
-		this.sendBitfield();
+		this.infoHash = new Uint8Array(this.buffer.slice(20 + 8, 20 + 8 + 20));
+		this.peerId = new Uint8Array(this.buffer.slice(20 + 8 + 20, 20 + 8 + 20 + 20));
 		this.state = 'connected';
 		this.buffer.take(20 + 8 + 20 + 20);
 
+		/* Hook for validation of incoming connections */
+		console.log("handshaked", this);
+		if (this.onHandshaked)
+		    this.onHandshaked();
+		if (!bufferEq(this.infoHash, this.torrent.infoHash))
+		    return fail("InfoHash mismatch");
+
+		this.sendBitfield();
 		this.sendLength(1);
 		this.sock.write(new Uint8Array([2]));  /* Interested */
 	    } else if (this.state === 'connected' && !this.messageSize && this.buffer.length >= 4) {
@@ -364,3 +396,15 @@ Peer.prototype = {
 	]));
     }
 };
+
+function bufferEq(b1, b2) {
+    if (b1.length !== b2.length)
+	return false;
+
+    for(var i = 0; i < b1.length; i++)
+	if (b1[i] !== b2[i])
+	    return false;
+
+    return true;
+}
+
