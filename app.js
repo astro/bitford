@@ -30,23 +30,23 @@ app.directive('piecesCanvas', function() {
 		if (!pieces)
 		    return;
 		var pieceLength = $scope.torrent.store.pieceLength;
-		element.attr('width', 3 * Math.ceil(pieceLength / 32768));
-		element.attr('height', Math.min(3 * pieces.length, 1024));
+		element.attr('width', Math.min(1024, 4 * pieces.length));
+		element.attr('height', Math.min(64, 4 * Math.ceil(pieceLength / 32768)));
 		var canvas = element[0];
 		var ctx = canvas.getContext('2d');
 		ctx.fillStyle = "white";
 		ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-		for(var y = 0; y < pieces.length; y++) {
-		    var y1 = canvas.height * y / pieces.length;
-		    var y2 = canvas.height * (y + 1) / pieces.length;
-		    if (pieces[y].valid) {
+		for(var x = 0; x < pieces.length; x++) {
+		    var x1 = canvas.width * x / pieces.length;
+		    var x2 = canvas.width * (x + 1) / pieces.length;
+		    if (pieces[x].valid) {
 			ctx.fillStyle = "#3f3";
-			ctx.fillRect(0, y1, canvas.width, y2);
+			ctx.fillRect(x1, 0, x2, canvas.height);
 		    } else
-			pieces[y].chunks.forEach(function(chunk) {
-			    var x1 = canvas.width * chunk.offset / pieceLength;
-			    var x2 = canvas.width * (chunk.offset + chunk.length) / pieceLength;
+			pieces[x].chunks.forEach(function(chunk) {
+			    var y1 = canvas.height * chunk.offset / pieceLength;
+			    var y2 = canvas.height * (chunk.offset + chunk.length) / pieceLength;
 			    switch(chunk.state) {
 				case 'missing':
 				    ctx.fillStyle = "#ccc";

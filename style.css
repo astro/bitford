@@ -55,12 +55,12 @@ h1 {
 }
 
 .torrent canvas.pieces {
-    display: inline-block;
-    vertical-align: top;
+    display: block;
     margin: 0.5em 1em 0 0;
+    max-width: 80%;
+    overflow-x: scroll;
 }
 .torrent .peers {
-    display: inline-block;
     vertical-align: top;
     margin: 0.5em 1em 0 1em;
     padding: 0;
