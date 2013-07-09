@@ -6,20 +6,26 @@ function RateShaper(rate) {
 RateShaper.prototype = {
     enqueue: function(item) {
 	this.nextTick += 1000 * item.amount / this.rate;
-	var now = Date.now();
+	var now = Date.now(),
+	    wait = Math.ceil(this.nextTick - now);
+	console.log("wait", item.amount, ":", 1000 * item.amount / this.rate, "=", wait);
 
-	if (this.nextTick <= now) {
+	if (wait <= 0) {
 	    this.nextTick = now;
 	    item.cb();
 	} else {
-	    console.log("wait", Math.floor(this.nextTick - now));
-	    setTimeout(item.cb, Math.floor(this.nextTick - now));
+	    setTimeout(item.cb, wait);
 	}
     }
 };
 
 /* Shaper setup */
-var rateShaper = new RateShaper(102400);
-var shaper = {
-    enqueue: rateShaper.enqueue.bind(rateShaper)
+var upShaperRate = new RateShaper(102400);
+var upShaper = {
+    enqueue: upShaperRate.enqueue.bind(upShaperRate)
+};
+
+var downShaperRate = new RateShaper(1024 * 1024);
+var downShaper = {
+    enqueue: downShaperRate.enqueue.bind(downShaperRate)
 };

@@ -82,7 +82,7 @@ Peer.prototype = {
 
     sendMessage: function(buffers, prio) {
 	var len = buffers.byteLength || buffers.length;
-	shaper.enqueue({
+	upShaper.enqueue({
 	    amount: 4 + len,
 	    prio: prio,
 	    cb: function() {
@@ -128,6 +128,17 @@ Peer.prototype = {
     },
 
     onData: function(data) {
+	this.sock.pause();
+	this.downShaped = true;
+	downShaper.enqueue({
+	    amount: data.byteLength,
+	    cb: function() {
+		this.downShaped = false;
+		if (this.sock && this.inPiecesProcessing < this.inflightThreshold)
+		    this.sock.resume();
+	    }.bind(this)
+	});
+
 	if (data.byteLength < 1)
 	    return;
 	this.buffer.append(data);
@@ -230,14 +241,9 @@ Peer.prototype = {
     },
 
     onPiece: function(piece, offset, data) {
-	// console.log(this.ip, "onPiece", piece, offset, data.length);
-	this.inPiecesProcessing++;
-	if (this.inPiecesProcessing >= this.inflightThreshold)
-	    /* Back-pressure but with allowance to buffer up in the store */
-	    this.sock.pause();
 	var onProcessed = function() {
 	    this.inPiecesProcessing--;
-	    if (this.sock && this.inPiecesProcessing < this.inflightThreshold)
+	    if (this.sock && !this.downShaped && this.inPiecesProcessing < this.inflightThreshold)
 		this.sock.resume();
 	}.bind(this);
 

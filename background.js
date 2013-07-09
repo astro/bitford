@@ -54,7 +54,7 @@ createTCPServer("::", 6881, function(sock) {
 	    torrents[i].peers.push(peer);
 	    peer.torrent = torrents[i];
 	} else {
-	    console.error("incoming", peer.ip, "unknown torrent", torrent.infoHash);
+	    console.error("incoming", peer.ip, "unknown torrent", peer.infoHash);
 	    throw "Peer for unknown torrent";
 	}
     });
