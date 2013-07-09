@@ -2,7 +2,7 @@
 
 var app = angular.module('Bitford', []);
 
-app.controller('LoadController', function($scope) {
+app.controller('MainController', function($scope) {
     $scope.loadFile = function(file) {
 	chrome.fileSystem.chooseEntry({
 	    type: 'openFile',
@@ -17,6 +17,17 @@ app.controller('LoadController', function($scope) {
 		    background.loadTorrent(file);
 		});
 	    });
+	});
+    };
+
+    chrome.runtime.getBackgroundPage(function(background) {
+	$scope.upShaper = Math.ceil(background.upShaperRate.rate / 1024);
+	$scope.downShaper = Math.ceil(background.downShaperRate.rate / 1024);
+    });
+    $scope.changeShapers = function() {
+	chrome.runtime.getBackgroundPage(function(background) {
+	    background.upShaperRate.rate = parseInt($scope.upShaper, 10) * 1024;
+	    background.downShaperRate.rate = parseInt($scope.downShaper, 10) * 1024;
 	});
     };
 });
