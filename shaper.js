@@ -5,10 +5,12 @@ function RateShaper(rate) {
 
 RateShaper.prototype = {
     enqueue: function(item) {
-	this.nextTick += 1000 * item.amount / this.rate;
+	if (this.rate)
+	    this.nextTick += 1000 * item.amount / this.rate;
+	else
+	    this.nextTick = 0;
 	var now = Date.now(),
 	    wait = Math.ceil(this.nextTick - now);
-	console.log("wait", item.amount, ":", 1000 * item.amount / this.rate, "=", wait);
 
 	if (wait <= 0) {
 	    this.nextTick = now;

@@ -241,6 +241,7 @@ Peer.prototype = {
     },
 
     onPiece: function(piece, offset, data) {
+	this.inPiecesProcessing++;
 	var onProcessed = function() {
 	    this.inPiecesProcessing--;
 	    if (this.sock && !this.downShaped && this.inPiecesProcessing < this.inflightThreshold)
