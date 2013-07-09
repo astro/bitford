@@ -25,6 +25,7 @@
 		"benc.js",
 		"mime.js",
 		"rate.js",
+		"shaper.js",
 		"torrent.js",
 		"tracker.js",
 		"peer.js",

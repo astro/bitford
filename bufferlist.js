@@ -18,6 +18,9 @@ function BufferList(init) {
 BufferList.prototype = {
     constructor: BufferList,
     append: function(b) {
+	if (typeof b.byteLength === 'number' && b.buffer)
+	    b = b.buffer;
+
 	if (typeof b.byteLength === 'number') {
 	    this.buffers.push(b);
 	    this.length += b.byteLength;
@@ -25,6 +28,10 @@ BufferList.prototype = {
 	    b.forEach(this.append.bind(this));
 	} else if (b.__proto__.constructor === BufferList) {
 	    b.buffers.forEach(this.append.bind(this));
+	} else if (typeof b === 'string') {
+	    b = strToUTF8Arr(b);
+	    this.buffer.push(b);
+	    this.length += b.byteLength;
 	} else {
 	    console.error("Failure appending to BufferList", b);
 	}

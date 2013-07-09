@@ -71,27 +71,6 @@ Peer.prototype = {
 	}.bind(this));
     },
 
-    sendHandshake: function() {
-	// "\19BitTorrent protocol"
-	this.sock.write(new Uint8Array([
-	    19,
-	    66, 105, 116, 84,
-	    111, 114, 114, 101,
-	    110, 116, 32, 112,
-	    114, 111, 116, 111,
-	    99, 111, 108
-	]));
-	// Extension bitfield
-	this.sock.write(new Uint8Array([
-	    0, 0, 0, 0,
-	    0, 0, 0, 0
-	]));
-	// InfoHash
-	this.sock.write(this.torrent.infoHash);
-	// PeerId
-	this.sock.write(strToUTF8Arr(this.torrent.peerId));
-    },
-
     sendLength: function(l) {
 	this.sock.write(new Uint8Array([
 	    (l >> 24) & 0xff,
@@ -101,11 +80,51 @@ Peer.prototype = {
 	]));
     },
 
+    sendMessage: function(buffers, prio) {
+	var len = buffers.byteLength || buffers.length;
+	shaper.enqueue({
+	    amount: 4 + len,
+	    prio: prio,
+	    cb: function() {
+		this.sendLength(len);
+		if (buffers.getBuffers)
+		    buffers.getBuffers().forEach(function(buf) {
+			console.log("sock", this.sock, "write", buf);
+			this.sock.write(buf);
+		    }.bind(this));
+		else
+		    this.sock.write(buffers);
+	    }.bind(this)
+	});
+    },
+
+    sendHandshake: function() {
+       // "\19BitTorrent protocol"
+        this.sock.write(new Uint8Array([
+            19,
+            66, 105, 116, 84,
+            111, 114, 114, 101,
+            110, 116, 32, 112,
+            114, 111, 116, 111,
+            99, 111, 108
+        ]));
+        // Extension bitfield
+        this.sock.write(new Uint8Array([
+            0, 0, 0, 0,
+            0, 0, 0, 0
+        ]));
+        // InfoHash
+        this.sock.write(this.torrent.infoHash);
+        // PeerId
+        this.sock.write(strToUTF8Arr(this.torrent.peerId));
+    },
+
     sendBitfield: function() {
 	var bitfield = this.torrent.getBitfield();
-	this.sendLength(1 + bitfield.byteLength);
-	this.sock.write(new Uint8Array([5]));
-	this.sock.write(bitfield);
+	this.sendMessage(new BufferList([
+	    new Uint8Array([5]),
+	    bitfield
+	]));
     },
 
     onData: function(data) {
@@ -140,8 +159,8 @@ Peer.prototype = {
 		    return fail("InfoHash mismatch");
 
 		this.sendBitfield();
-		this.sendLength(1);
-		this.sock.write(new Uint8Array([2]));  /* Interested */
+		/* Interested */
+		this.sendMessage(new Uint8Array([2]));
 	    } else if (this.state === 'connected' && !this.messageSize && this.buffer.length >= 4) {
 		this.messageSize = this.buffer.getWord32BE(0);
 		// console.log(this.ip, "messageSize", this.messageSize);
@@ -280,9 +299,8 @@ Peer.prototype = {
 	if (interesting && !this.interesting) {
 	    /* Change triggered */
 	    this.interesting = true;
-	    this.sendLength(1);
 	    /* Interested */
-	    this.sock.write(new Uint8Array([2]));
+	    this.sendMessage(new Uint8Array([2]));
 	}
 	this.interesting = interesting;
 	// TODO: We'll need to send not interested as our pieces complete
@@ -357,8 +375,7 @@ Peer.prototype = {
 	var piece = chunk.piece, offset = chunk.offset, length = chunk.length;
 	/* Piece request */
 	chunk.sendTime = Date.now();
-	this.sendLength(13);
-	this.sock.write(new Uint8Array([
+	this.sendMessage(new Uint8Array([
 	    6,
 	    (piece >> 24) & 0xff, (piece >> 16) & 0xff, (piece >> 8) & 0xff, piece & 0xff,
 	    (offset >> 24) & 0xff, (offset >> 16) & 0xff, (offset >> 8) & 0xff, offset & 0xff,
@@ -392,8 +409,7 @@ Peer.prototype = {
 	if (!this.sock)
 	    return;
 
-	this.sendLength(13);
-	this.sock.write(new Uint8Array([
+	this.sendMessage(new Uint8Array([
 	    8,
 	    (piece >> 24) & 0xff, (piece >> 16) & 0xff, (piece >> 8) & 0xff, piece & 0xff,
 	    (offset >> 24) & 0xff, (offset >> 16) & 0xff, (offset >> 8) & 0xff, offset & 0xff,

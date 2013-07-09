@@ -102,8 +102,10 @@ TCPSocket.prototype = {
 
 	if (typeof data === 'string')
 	    data = strToUTF8Arr(data);
+	else if (data.buffer)
+		data = data.buffer;
 
-	Socket.write(this.sockId, data.buffer, function(writeInfo) {
+	Socket.write(this.sockId, data, function(writeInfo) {
 	    if (writeInfo.bytesWritten < 0) {
 		console.error("Write to socket", this.sockId, ":", writeInfo.bytesWritten);
 		return this.end();
