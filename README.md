@@ -1,6 +1,5 @@
 ## Roadmap
 
-* Stopping & removing torrents
 * Seeding
   * send Have
 * TEST: Accepting connections

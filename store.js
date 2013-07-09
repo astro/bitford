@@ -33,6 +33,13 @@ function Store(files, pieceHashes, pieceLength) {
 	this.pieces.push(new StorePiece(this, this.pieces.length, chunks, pieceHashes[this.pieces.length]));
     }
     this.fileEntries = {};
+    this.removeFiles = function() {
+	files.forEach(function(file) {
+	    this.withFileEntry(file.path, function(entry) {
+		entry.remove(function() { });
+	    });
+	}.bind(this));
+    };
 
     this.sha1Worker = new Worker("sha1-worker.js");
     this.sha1Worker.onmessage = function(ev) {
@@ -71,6 +78,19 @@ function Store(files, pieceHashes, pieceLength) {
     setTimeout(this.processHashingQueue.bind(this), 500);
 }
 Store.prototype = {
+    remove: function() {
+	if (this.sha1Worker) {
+	    this.sha1Worker.terminate();
+	    this.sha1Worker = null;
+	}
+	this.removeFiles();
+	// HACKS to stop hashing:
+	this.pieces.forEach(function(piece) {
+	    piece.sha1pos = true;
+	});
+	this.processHashingQueue = [];
+    },
+
     isInterestedIn: function(peer) {
 	for(var i = 0; i < this.pieces.length; i++) {
 	    var piece = this.pieces[i];

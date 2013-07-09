@@ -50,6 +50,19 @@ function Torrent(meta) {
 }
 
 Torrent.prototype = {
+    end: function() {
+	this.trackers.forEach(function(tg) {
+	    console.log("stop tg", tg);
+	    tg.stop();
+	});
+	this.peers.forEach(function(peer) {
+	    console.log("end peer", peer);
+	    peer.end();
+	});
+	console.log("remove store", this.store);
+	this.store.remove();
+    },
+
     canConnectPeer: function() {
 	for(var i = 0; i < this.peers.length; i++) {
 	    var peer = this.peers[i];

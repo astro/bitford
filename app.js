@@ -83,6 +83,9 @@ app.controller('TorrentsController', function($scope) {
     });
     setInterval(function() {
 	$scope.$apply(function() {
+	    chrome.runtime.getBackgroundPage(function(background) {
+		$scope.torrents = background.torrents;
+	    });
 	});
     }, 500);
 });
@@ -177,6 +180,11 @@ app.controller('TorrentController', function($scope) {
 	    }, function(e) {
 		console.error("createWriter", e);
 	    });
+	});
+    };
+    $scope.removeButton = function() {
+	chrome.runtime.getBackgroundPage(function(background) {
+	    background.rmTorrent($scope.torrent);
 	});
     };
 });

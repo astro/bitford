@@ -33,6 +33,15 @@ function loadTorrent(file) {
     reader.readAsArrayBuffer(file);
 }
 
+function rmTorrent(torrent) {
+    torrent.end();
+    console.log("filtering");
+    torrents = torrents.filter(function(torrent1) {
+	return torrent !== torrent1;
+    });
+    console.log("removed");
+}
+
 /* Peer listener */
 createTCPServer("::", 6881, function(sock) {
     console.log("new peer server sock", sock);

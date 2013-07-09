@@ -30,7 +30,7 @@
 	  <div>
 	    <button ng-hide="isMultiFile" ng-click="saveButton([torrent.name])" ng-disabled="saving">Save</button>
 	    <button ng-hide="isMultiFile || !canPlay(torrent.name)" ng-click="playButton([torrent.name])">Play</button>
-	    <button disabled>Remove</button>
+	    <button ng-click="removeButton()">Remove</button>
 	  </div>
 	  <ul class="files" ng-show="isMultiFile">
 	    <li ng-repeat="file in torrent.files">

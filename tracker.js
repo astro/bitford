@@ -39,8 +39,16 @@ TrackerGroup.prototype = {
 	    }
 
 	    var interval = (response.interval || 30 + 30 * Math.random()) * 1000;
-	    setTimeout(this.start.bind(this), Math.ceil(interval));
+	    this.timeout = setTimeout(this.start.bind(this), Math.ceil(interval));
 	}.bind(this));
+    },
+
+    stop: function() {
+	// TODO: do event req
+	if (this.timeout) {
+	    clearTimeout(this.timeout);
+	    this.timeout = null;
+	}
     }
 };
 

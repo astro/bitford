@@ -39,6 +39,11 @@ function Peer(torrent, info) {
 }
 
 Peer.prototype = {
+    end: function() {
+	if (this.sock)
+	    this.sock.end();
+    },
+
     setSock: function(sock) {
 	this.sock = sock;
 	sock.onEnd = function() {
@@ -213,7 +218,7 @@ Peer.prototype = {
 	    this.sock.pause();
 	var onProcessed = function() {
 	    this.inPiecesProcessing--;
-	    if (this.inPiecesProcessing < this.inflightThreshold)
+	    if (this.sock && this.inPiecesProcessing < this.inflightThreshold)
 		this.sock.resume();
 	}.bind(this);
 
