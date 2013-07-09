@@ -57,8 +57,22 @@ h1 {
 .torrent canvas.pieces {
     display: block;
     margin: 0.5em 1em 0 0;
-    max-width: 80%;
     overflow-x: scroll;
+    border: 1px solid #333;
+}
+.torrent .pieces-legend {
+    font-size: 80%;
+    color: #333;
+    margin: 0 0 1em;
+}
+.torrent .pieces-legend span {
+    display: inline-block;
+    width: 0.5em;
+    height: 0.5em;
+    line-height: 0.5em;
+    vertical-align: middle;
+    border: 1px solid #333;
+    margin: 0 0.1em 0 0.7em;
 }
 .torrent .peers {
     vertical-align: top;

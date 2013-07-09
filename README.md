@@ -2,11 +2,12 @@
 
 * Seeding
   * send Have
-* TEST: Accepting connections
-* Server port bind retrying
-* Tracker stats
+  * Transition to seeder
 * Priorities & shaping
-* Transition to seeder
+* Re-coordinate hashing
+* TEST: Accepting connections
+* Server ports bind retrying
+* Tracker stats
 * Truncating/Hashing on existing files?
 * Session restore + clean-up unused files
 

@@ -96,7 +96,7 @@ var MediaSource_ = window.MediaSource ||
 app.controller('TorrentController', function($scope) {
     $scope.round = Math.round;
     $scope.humanSize = humanSize;
-    $scope.show = false;
+    $scope.show = true;
     $scope.toggleShow = function() {
 	$scope.show = !$scope.show;
     };
