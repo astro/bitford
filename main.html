@@ -43,7 +43,7 @@
 	<p class="size">
 	  {{torrent.store.getDonePercent()}}%
 	  of {{humanSize(torrent.store.size)}}
-	  at {{humanSize(torrent.rate.getRate())}}/s
+	  at {{humanSize(torrent.downRate.getRate())}}/s
 	</p>
 	<div ng-show="show">
 	  <div>
@@ -128,8 +128,8 @@
 		  </span>
 		</td>
 		<td>{{peer.getDonePercent()}}%</td>
-		<td>?</td>
-		<td>{{humanSize(peer.rate.getRate())}}/s</td>
+		<td>{{humanSize(peer.upRate.getRate())}}/s</td>
+		<td>{{humanSize(peer.downRate.getRate())}}/s</td>
 		<td>{{peer.requestedChunks.length}}↓ {{peer.pendingChunks.length}}↑</td>
 	      </tr>
 	    </tbody>

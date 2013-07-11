@@ -4,7 +4,8 @@ function Torrent(meta) {
     this.pieces = Math.floor(meta.info.pieces.byteLength / 20);
     this.infoHash = meta.infoHash;
     this.peerId = "-BF000-xxxxxxxxxxxxx";
-    this.rate = new RateEstimator();
+    this.upRate = new RateEstimator();
+    this.downRate = new RateEstimator();
     this.peers = [];
     var pieceLength;
     if (typeof meta.info['piece length'] == 'number')
@@ -83,7 +84,7 @@ Torrent.prototype = {
     },
 
     recvData: function(piece, offset, data, cb) {
-	this.rate.add(data.length);
+	this.downRate.add(data.length);
 	this.store.write(piece, offset, data, cb);
     },
 

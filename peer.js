@@ -29,7 +29,8 @@ function Peer(torrent, info) {
     this.requestedChunks = [];
     this.inflightThreshold = 10;
     this.inPiecesProcessing = 0;
-    this.rate = new RateEstimator();
+    this.upRate = new RateEstimator();
+    this.downRate = new RateEstimator();
     this.pendingChunks = [];
     // We in them
     this.interesting = false;
@@ -72,34 +73,36 @@ Peer.prototype = {
 	}.bind(this));
     },
 
-    sendLength: function(l) {
-	this.sock.write(new Uint8Array([
-	    (l >> 24) & 0xff,
-	    (l >> 16) & 0xff,
-	    (l >> 8) & 0xff,
-	    l & 0xff
-	]));
-    },
-
     sendMessage: function(buffers, prio) {
 	var len = buffers.byteLength || buffers.length;
 	upShaper.enqueue({
 	    amount: 4 + len,
 	    prio: prio,
 	    cb: function() {
-		this.sendLength(len);
+		/* Send length */
+		var amount = 4;
+		var lenBuf = new ArrayBuffer(4);
+		new DataView(lenBuf).setUint32(0, len);
+		this.sock.write(lenBuf);
+
+		/* Send data */
 		if (buffers.getBuffers)
 		    buffers.getBuffers().forEach(function(buf) {
+			amount += buf.byteLength;
 			this.sock.write(buf);
 		    }.bind(this));
-		else
+		else {
+		    amount += buffers.byteLength;
 		    this.sock.write(buffers);
+		}
+		this.upRate.add(amount);
 	    }.bind(this)
 	});
     },
 
     sendHandshake: function() {
-       // "\19BitTorrent protocol"
+	this.upRate.add(20 + 8 + 20 + 20);
+	// "\19BitTorrent protocol"
         this.sock.write(new Uint8Array([
             19,
             66, 105, 116, 84,
@@ -143,7 +146,7 @@ Peer.prototype = {
 	if (data.byteLength < 1)
 	    return;
 	this.buffer.append(data);
-	this.rate.add(data.byteLength);
+	this.downRate.add(data.byteLength);
 
 	var fail = function(msg) {
 	    console.warn("sock", this.ip, ":", this.port, "fail", msg);
@@ -402,12 +405,14 @@ Peer.prototype = {
 	var piece = chunk.piece, offset = chunk.offset, length = chunk.length;
 	/* Piece request */
 	chunk.sendTime = Date.now();
-	this.sendMessage(new Uint8Array([
-	    6,
-	    (piece >> 24) & 0xff, (piece >> 16) & 0xff, (piece >> 8) & 0xff, piece & 0xff,
-	    (offset >> 24) & 0xff, (offset >> 16) & 0xff, (offset >> 8) & 0xff, offset & 0xff,
-	    (length >> 24) & 0xff, (length >> 16) & 0xff, (length >> 8) & 0xff, length & 0xff
-	]));
+
+	var buf = new ArrayBuffer(13);
+	var bufView = new DataView(buf);
+	bufView.setInt8(0, 6);
+	bufView.setUint32(1, piece);
+	bufView.setUint32(5, offset);
+	bufView.setUint32(9, length);
+	this.sendMessage(buf);
 
 	var delay = this.minDelay || 500;
 	chunk.timeout = setTimeout(function() {
@@ -436,12 +441,13 @@ Peer.prototype = {
 	if (!this.sock)
 	    return;
 
-	this.sendMessage(new Uint8Array([
-	    8,
-	    (piece >> 24) & 0xff, (piece >> 16) & 0xff, (piece >> 8) & 0xff, piece & 0xff,
-	    (offset >> 24) & 0xff, (offset >> 16) & 0xff, (offset >> 8) & 0xff, offset & 0xff,
-	    (length >> 24) & 0xff, (length >> 16) & 0xff, (length >> 8) & 0xff, length & 0xff
-	]));
+	var buf = new ArrayBuffer(13);
+	var bufView = new DataView(buf);
+	bufView.setInt8(0, 8);
+	bufView.setUint32(1, piece);
+	bufView.setUint32(5, offset);
+	bufView.setUint32(9, length);
+	this.sendMessage(buf);
     }
 };
 
