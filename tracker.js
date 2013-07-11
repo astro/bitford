@@ -117,18 +117,30 @@ Tracker.prototype = {
 	    peerId = this.torrent.peerId;
 
 	connectUDP(address, port, function(err, sock) {
+	    var tries = 0;
 	    function send(data, filterCb, doneCb) {
+		tries++;
 		sock.write(data);
 		sock.onData = function(rData) {
 		    var result;
 		    if ((result = filterCb(rData))) {
 			console.log("send result", result);
 			sock.onData = null;
+			clearTimeout(timeout);
+			tries = 0;
 			doneCb(result);
 		    }
 		};
 		sock.resume();
-		// TODO: timeout + retrying
+		var timeout = setTimeout(function() {
+		    sock.onData = null;
+		    if (tries < 5) {
+			send(data, filterCb, doneCb);
+		    } else {
+			sock.end();
+			cb(new Error("Timeout"));
+		    }
+		}, 5);
 	    }
 
 	    var transactionId = Math.floor(Math.pow(2,32) * Math.random());
@@ -182,12 +194,14 @@ Tracker.prototype = {
 			d.getUint32(0) === 1 &&
 			d.getUint32(4) === transactionId) {
 			var connectionId = [d.getUint32(8), d.getUint32(12)];
+			console.log("UDP tracker has", (announceRes.byteLength - 20) / 6, "peers");
 			return {
 			    interval: d.getUint32(8),
 			    peers: new Uint8Array(announceRes.slice(20))
 			};
 		    }
 		}, function(result) {
+		    sock.end();
 		    cb(null, result);
 		});
 	    });
