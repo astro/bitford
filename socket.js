@@ -2,6 +2,9 @@ var Socket = chrome.socket || chrome.experimental.socket;
 
 function BaseSocket(sockId) {
     this.sockId = sockId;
+
+    this.paused = true;
+    this.readPending = false;
 }
 
 BaseSocket.prototype = {
@@ -18,6 +21,46 @@ BaseSocket.prototype = {
 	Socket.destroy(this.sockId);
 
 	delete this.sockId;
+    },
+
+    pause: function() {
+	this.paused = true;
+    },
+
+    resume: function() {
+	this.paused = false;
+	this.read();
+    },
+
+    connect: function(host, port, cb) {
+	chrome.socket.connect(this.sockId, host, port, function(res) {
+	    if (res === 0)
+		cb(null);
+	    else
+		cb(new Error("Connect: " + res));
+	});
+    },
+
+    read: function() {
+	if (this.paused || this.readPending)
+	    return;
+	this.readPending = true;
+	Socket.read(this.sockId, function(readInfo) {
+	    this.readPending = false;
+	    if (readInfo.resultCode < 0)
+		return this.end();
+	    if (readInfo.data && this.onData) {
+		try {
+		    this.onData(readInfo.data);
+		    /* onData() could have closed it */
+		    if (this.sockId)
+			this.read();
+		} catch (e) {
+		    console.error(e.stack || e.message || e);
+		    this.end();
+		}
+	    }
+	}.bind(this));
     }
 };
 
@@ -67,53 +110,11 @@ function TCPSocket(sockId) {
     BaseSocket.call(this, sockId);
 
     this.writesPending = 0;
-    this.paused = true;
-    this.readPending = false;
     this.drained = true;
 }
 
 TCPSocket.prototype = Object.create(BaseSocket.prototype);
 TCPSocket.prototype.constructor = TCPSocket;
-
-TCPSocket.prototype.connect = function(host, port, cb) {
-	chrome.socket.connect(this.sockId, host, port, function(res) {
-	    if (res === 0)
-		cb(null);
-	    else
-		cb(new Error("Connect: " + res));
-	});
-};
-
-TCPSocket.prototype.pause = function() {
-	this.paused = true;
-};
-
-TCPSocket.prototype.resume = function() {
-	this.paused = false;
-	this.read();
-};
-
-TCPSocket.prototype.read = function() {
-	if (this.paused || this.readPending)
-	    return;
-	this.readPending = true;
-	Socket.read(this.sockId, function(readInfo) {
-	    this.readPending = false;
-	    if (readInfo.resultCode < 0)
-		return this.end();
-	    if (readInfo.data && this.onData) {
-		try {
-		    this.onData(readInfo.data);
-		    /* onData() could have closed it */
-		    if (this.sockId)
-			this.read();
-		} catch (e) {
-		    console.error(e.stack || e.message || e);
-		    this.end();
-		}
-	    }
-	}.bind(this));
-};
 
 TCPSocket.prototype.write = function(data) {
 	if (!this.sockId)
@@ -149,30 +150,41 @@ TCPSocket.prototype.end = function() {
 };
 
 
-/**
- * Isn't immediately ready, use cb().
- */
-function UDPSocket(cb) {
+function connectUDP(host, port, cb) {
     Socket.create('udp', {}, function(createInfo) {
-		      console.log("udp", createInfo);
-	BaseSocket.call(this, createInfo.socketId);
-	if (cb)
+	var sock = new UDPSocket(createInfo.socketId);
+	sock.connect(host, port, function(err) {
 	    try {
-		cb(this);
+		cb(err, err ? null : sock);
 	    } catch (e) {
 		console.error(e.stack || e.message || e);
 	    }
+	});
+    });
+}
 
-	this.recvLoop();
-    }.bind(this));
+function UDPSocket(sockId) {
+    BaseSocket.call(this, sockId);
 }
 
 UDPSocket.prototype = Object.create(BaseSocket.prototype);
 UDPSocket.prototype.constructor = UDPSocket;
 
-UDPSocket.prototype.sendTo = function(data, address, port) {
-    chrome.socket.sendTo(this.sockId, data, address, port, function(writeInfo) {
-    });
+UDPSocket.prototype.write = function(data) {
+	if (!this.sockId)
+	    return;
+
+	if (typeof data === 'string')
+	    data = strToUTF8Arr(data);
+	else if (data.buffer)
+		data = data.buffer;
+
+	Socket.write(this.sockId, data, function(writeInfo) {
+	    if (writeInfo.bytesWritten < 0) {
+		console.error("Write to socket", this.sockId, ":", writeInfo.bytesWritten);
+		return this.end();
+	    }
+	}.bind(this));
 };
 
 UDPSocket.prototype.recvLoop = function() {

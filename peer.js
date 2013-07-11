@@ -89,7 +89,6 @@ Peer.prototype = {
 		this.sendLength(len);
 		if (buffers.getBuffers)
 		    buffers.getBuffers().forEach(function(buf) {
-			console.log("sock", this.sock, "write", buf);
 			this.sock.write(buf);
 		    }.bind(this));
 		else

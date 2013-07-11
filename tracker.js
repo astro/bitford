@@ -116,17 +116,18 @@ Tracker.prototype = {
 	var infoHash = this.torrent.infoHash,
 	    peerId = this.torrent.peerId;
 
-	new UDPSocket(function(sock) {
+	connectUDP(address, port, function(err, sock) {
 	    function send(data, filterCb, doneCb) {
-		console.log("sendTo", data, address, port);
-		sock.sendTo(data, address, port);
-		sock.onData = function(rData, rAddress, rPort) {
+		sock.write(data);
+		sock.onData = function(rData) {
 		    var result;
 		    if ((result = filterCb(rData))) {
+			console.log("send result", result);
 			sock.onData = null;
 			doneCb(result);
 		    }
 		};
+		sock.resume();
 		// TODO: timeout + retrying
 	    }
 
@@ -165,8 +166,8 @@ Tracker.prototype = {
 		    0, 0  /* extensions */
 		]);
 		var d = new DataView(announceReq.buffer);
-		d.setUint32(0, connection_id[0]);
-		d.setUint32(4, connection_id[1]);
+		d.setUint32(0, connectionId[0]);
+		d.setUint32(4, connectionId[1]);
 		d.setUint32(12, transactionId);
 		var i;
 		for(i = 0; i < 20; i++) {
@@ -186,7 +187,9 @@ Tracker.prototype = {
 			    peers: new Uint8Array(announceRes.slice(20))
 			};
 		    }
-		}, cb);
+		}, function(result) {
+		    cb(null, result);
+		});
 	    });
 	});
     }
