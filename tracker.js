@@ -60,9 +60,15 @@ console.log("Tracker.url=", url);
 }
 Tracker.prototype = {
     request: function(cb) {
-	if (!(/^https?:\/\//.test(this.url)))
-	    return;
+	var m;
 
+	if ((/^https?:\/\//.test(this.url)))
+	    return this.requestHTTP(cb);
+	else if ((m = this.url.match(/^udp:\/\/([^:]+):(\d+)/)))
+	    return this.requestUDP(m[1], parseInt(m[2]), cb);
+    },
+
+    requestHTTP: function(cb) {
         var query = {
 	    info_hash: this.torrent.infoHash,
 	    peer_id: this.torrent.peerId,
@@ -104,6 +110,85 @@ Tracker.prototype = {
 	    }
 	};
         xhr.send();
+    },
+
+    requestUDP: function(address, port, cb) {
+	var infoHash = this.torrent.infoHash,
+	    peerId = this.torrent.peerId;
+
+	new UDPSocket(function(sock) {
+	    function send(data, filterCb, doneCb) {
+		console.log("sendTo", data, address, port);
+		sock.sendTo(data, address, port);
+		sock.onData = function(rData, rAddress, rPort) {
+		    var result;
+		    if ((result = filterCb(rData))) {
+			sock.onData = null;
+			doneCb(result);
+		    }
+		};
+		// TODO: timeout + retrying
+	    }
+
+	    var transactionId = Math.floor(Math.pow(2,32) * Math.random());
+	    var connectReq = new Uint8Array([
+		0, 0, 0x4, 0x17, 0x27, 0x10, 0x19, 0x80,  /* connection_id */
+		0, 0, 0, 0,  /* action: connect */
+		0, 0, 0, 0  /* transaction_id, see below */
+	    ]);
+	    (new DataView(connectReq.buffer)).setUint32(12, transactionId);
+
+	    send(connectReq.buffer, function(connectRes) {
+		var d = new DataView(connectRes);
+		if (d.byteLength >= 16 &&
+		    d.getUint32(0) === 0 &&
+		    d.getUint32(4) === transactionId) {
+		    var connectionId = [d.getUint32(8), d.getUint32(12)];
+		    return connectionId;
+		}
+	    }, function(connectionId) {
+		transactionId = Math.floor(Math.pow(2,32) * Math.random());
+		var announceReq = new Uint8Array([
+		    0, 0, 0, 0, 0, 0, 0, 0,  /* connection_id */
+		    0, 0, 0, 1,  /* action: announce */
+		    0, 0, 0, 0,  /* transaction_id, see below */
+		    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  /* info_hash */
+		    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  /* peer_id */
+		    0, 0, 0, 0, 0, 0, 0, 0,  /* TODO: downloaded */
+		    0, 0, 0, 0, 0, 0, 0, 0,  /* TODO: left */
+		    0, 0, 0, 0, 0, 0, 0, 0,  /* TODO: uploaded */
+		    0, 0, 0, 2,  /* TODO: event */
+		    0, 0, 0, 0,  /* ip */
+		    0, 0, 0, 0,  /* TODO: key */
+		    0xff, 0xff, 0xff, 0xff,  /* num_want */
+		    0x1a, 0xe1,  /* TODO: port */
+		    0, 0  /* extensions */
+		]);
+		var d = new DataView(announceReq.buffer);
+		d.setUint32(0, connection_id[0]);
+		d.setUint32(4, connection_id[1]);
+		d.setUint32(12, transactionId);
+		var i;
+		for(i = 0; i < 20; i++) {
+		    d.setInt8(16 + i, infoHash[i]);
+		}
+		for(i = 0; i < 20; i++) {
+		    d.setInt8(36 + i, peerId[i]);
+		}
+		send(announceReq, function(announceRes) {
+		    var d = new DataView(announceRes);
+		    if (d.byteLength >= 20 &&
+			d.getUint32(0) === 1 &&
+			d.getUint32(4) === transactionId) {
+			var connectionId = [d.getUint32(8), d.getUint32(12)];
+			return {
+			    interval: d.getUint32(8),
+			    peers: new Uint8Array(announceRes.slice(20))
+			};
+		    }
+		}, cb);
+	    });
+	});
     }
 };
 

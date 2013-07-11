@@ -7,7 +7,7 @@
 
     "permissions": [
 	{
-	    "socket": ["tcp-connect:*:*", "tcp-listen::*"]
+	    "socket": ["tcp-connect:*:*", "tcp-listen::*", "udp-send-to::*"]
 	},
 	"storage",
 	"unlimitedStorage",
