@@ -49,9 +49,17 @@ Peer.prototype = {
     setSock: function(sock) {
 	this.sock = sock;
 	sock.onEnd = function() {
+	    console.log("onEnd", this);
 	    delete this.sock;
-	    this.state = 'disconnected';
+	    if (this.state !== 'error')
+		this.state = 'disconnected';
 	    this.discardRequestedChunks();
+	    // We in them
+	    this.interesting = false;
+	    this.choking = true;
+	    // Them in us
+	    this.interested = false;
+	    this.choked = true;
 	}.bind(this);
 	sock.onData = this.onData.bind(this);
 	sock.onDrain = this.onDrain.bind(this);
