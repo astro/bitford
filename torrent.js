@@ -97,5 +97,9 @@ Torrent.prototype = {
     },
 
     onPieceValid: function(pieceNumber) {
+	this.peers.forEach(function(peer) {
+	    if (peer.state === 'connected')
+		peer.sendHave(pieceNumber);
+	});
     }
 };

@@ -185,6 +185,8 @@ Peer.prototype = {
 		this.sendBitfield();
 		/* Interested */
 		this.sendMessage(new Uint8Array([2]));
+		/* Unchoke */
+		this.sendMessage(new Uint8Array([1]));
 	    } else if (this.state === 'connected' && !this.messageSize && this.buffer.length >= 4) {
 		this.messageSize = this.buffer.getWord32BE(0);
 		// console.log(this.ip, "messageSize", this.messageSize);
@@ -372,6 +374,26 @@ Peer.prototype = {
 
     onDrain: function() {
 	this.canRequest();
+
+	if (this.sock && this.sock.drained) {
+	    var chunk;
+	    if ((chunk = this.pendingChunks.shift())) {
+		var buf = new Uint8Array(9);
+		var bufView = new DataView(buf);
+		bufView.setInt8(0, 7);  /* Piece */
+		bufView.setUint32(1, chunk.piece);
+		bufView.setUint32(5, chunk.offset);
+		var buffers = new BufferList(buf);
+
+		var piece = this.torrent.store.pieces[chunk.piece];
+		if (piece && piece.valid) {
+		    piece.read(chunk.offset, chunk.length, function(data) {
+			buffers.append(data);
+			this.sendMessage(data);
+		    }.bind(this));
+		}
+	    }
+	}
     },
 
     canRequest: function() {
@@ -455,6 +477,14 @@ Peer.prototype = {
 	bufView.setUint32(1, piece);
 	bufView.setUint32(5, offset);
 	bufView.setUint32(9, length);
+	this.sendMessage(buf);
+    },
+
+    sendHave: function(piece) {
+	var buf = new ArrayBuffer(5);
+	var bufView = new DataView(buf);
+	bufView.setInt8(0, 4);
+	bufView.setUint32(1, piece);
 	this.sendMessage(buf);
     }
 };

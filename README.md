@@ -1,8 +1,6 @@
 ## Roadmap
 
-* Seeding
-  * send Have
-  * Transition to seeder
+* Transition to seeder
 * Priorities & shaping
 * Re-coordinate hashing
 * TEST: Accepting connections
