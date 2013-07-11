@@ -37,6 +37,8 @@ app.directive('piecesCanvas', function() {
 	restrict: 'A',
 	link: function($scope, element, attrs) {
 	    function draw() {
+		var t1 = Date.now();
+
 		var pieces = $scope.torrent.store.pieces;
 		if (!pieces)
 		    return;
@@ -53,6 +55,11 @@ app.directive('piecesCanvas', function() {
 		    var x2 = Math.ceil(canvas.width * (x + 1) / pieces.length);
 		    if (pieces[x].valid) {
 			ctx.fillStyle = "#3f3";
+			ctx.fillRect(x1, 0, x2, canvas.height);
+		    } else if (!pieces[x].chunks.some(function(chunk) {
+							  return chunk.state !== 'missing';
+						      })) {
+			ctx.fillStyle = "#ccc";
 			ctx.fillRect(x1, 0, x2, canvas.height);
 		    } else
 			pieces[x].chunks.forEach(function(chunk) {
@@ -81,7 +88,9 @@ app.directive('piecesCanvas', function() {
 			});
 		}
 
-		setTimeout(draw, 1000);
+		var t2 = Date.now();
+		/* Allow max. 10% CPU time */
+		setTimeout(draw, Math.ceil(Math.max(5, t2 - t1) / .10));
 	    }
 	    draw();
         }
