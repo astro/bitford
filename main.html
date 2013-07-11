@@ -73,23 +73,25 @@
 	    </audio>
 	  </div>
 
-	  <canvas pieces-canvas
-		  width="128" height="512" class="pieces">
-	  </canvas>
-	  <p class="pieces-legend">
-	    <span style="background-color: #ccc"> </span>
-	    missing
-	    <span style="background-color: red"> </span>
-	    requested
-	    <span style="background-color: yellow"> </span>
-	    received
-	    <span style="background-color: blue"> </span>
-	    stored
-	    <span style="background-color: #0c0"> </span>
-	    checked
-	    <span style="background-color: #3f3"> </span>
-	    valid
-	  </p>
+	  <div class="pieces-container">
+	    <canvas pieces-canvas
+		    width="128" height="512" class="pieces">
+	    </canvas>
+	    <p class="pieces-legend">
+	      <span style="background-color: #ccc"> </span>
+	      missing
+	      <span style="background-color: red"> </span>
+	      requested
+	      <span style="background-color: yellow"> </span>
+	      received
+	      <span style="background-color: blue"> </span>
+	      stored
+	      <span style="background-color: #0c0"> </span>
+	      checked
+	      <span style="background-color: #3f3"> </span>
+	      valid
+	    </p>
+	  </div>
 	  <table ng-show="torrent.peers.length > 0"
 		 class="peers">
 	    <thead>
@@ -97,15 +99,20 @@
 		<th>Address</th>
 		<th>Client</th>
 		<th>State</th>
+		<th>Done</th>
 		<th>Up</th>
 		<th>Down</th>
-		<th>Done</th>
+		<th>Queue</th>
 	      </tr>
 	    </thead>
 	    <tbody>
 	      <tr ng-repeat="peer in torrent.peers"
 		  ng-show="peer.state == 'connected'">
-		<td>{{peer.ip}}:{{peer.port}}</td>
+		<td>
+		  <span ng-show="peer.direction == 'incoming'" title="Incoming">From</span>
+		  <span ng-show="peer.direction == 'outgoing'" title="Outgoing">To</span>
+		  {{peer.ip}}:{{peer.port}}
+		</td>
 		<td>{{peerIdToClient(peer.peerId)}}</td>
 		<td ng-switch="peer.state">
 		  <span ng-switch-when="connected">
@@ -120,9 +127,10 @@
 		    {{peer.state}}<span ng-show="peer.error">: {{peer.error}}</span>
 		  </span>
 		</td>
+		<td>{{peer.getDonePercent()}}%</td>
 		<td>?</td>
 		<td>{{humanSize(peer.rate.getRate())}}/s</td>
-		<td>{{peer.getDonePercent()}}%</td>
+		<td>{{peer.requestedChunks.length}}↓ {{peer.pendingChunks.length}}↑</td>
 	      </tr>
 	    </tbody>
 	  </table>

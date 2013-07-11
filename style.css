@@ -59,18 +59,24 @@ h1 {
     margin: 0;
 }
 
-.torrent canvas.pieces {
+.pieces-container {
+    display: block;
+    max-width: 90%;
+}
+.pieces-container canvas.pieces {
     display: block;
     margin: 0.5em 1em 0 0;
+    max-width: 100%;
     overflow-x: scroll;
     border: 1px solid #333;
 }
-.torrent .pieces-legend {
+.pieces-container .pieces-legend {
+    text-align: center;
     font-size: 80%;
     color: #333;
     margin: 0 0 1em;
 }
-.torrent .pieces-legend span {
+.pieces-container .pieces-legend span {
     display: inline-block;
     width: 0.5em;
     height: 0.5em;
@@ -93,7 +99,6 @@ h1 {
 .torrent .peers th, .torrent .peers td {
     margin: 0;
     padding: 0.2em 0.5em;
-    min-width: 5em;
 }
 .torrent .peers tbody tr:hover {
     background-color: #ddd;
