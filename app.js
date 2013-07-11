@@ -49,15 +49,15 @@ app.directive('piecesCanvas', function() {
 		ctx.fillRect(0, 0, canvas.width, canvas.height);
 
 		for(var x = 0; x < pieces.length; x++) {
-		    var x1 = canvas.width * x / pieces.length;
-		    var x2 = canvas.width * (x + 1) / pieces.length;
+		    var x1 = Math.floor(canvas.width * x / pieces.length);
+		    var x2 = Math.ceil(canvas.width * (x + 1) / pieces.length);
 		    if (pieces[x].valid) {
 			ctx.fillStyle = "#3f3";
 			ctx.fillRect(x1, 0, x2, canvas.height);
 		    } else
 			pieces[x].chunks.forEach(function(chunk) {
-			    var y1 = canvas.height * chunk.offset / pieceLength;
-			    var y2 = canvas.height * (chunk.offset + chunk.length) / pieceLength;
+			    var y1 = Math.floor(canvas.height * chunk.offset / pieceLength);
+			    var y2 = Math.ceil(canvas.height * (chunk.offset + chunk.length) / pieceLength);
 			    switch(chunk.state) {
 				case 'missing':
 				    ctx.fillStyle = "#ccc";
@@ -107,6 +107,7 @@ var MediaSource_ = window.MediaSource ||
 app.controller('TorrentController', function($scope) {
     $scope.round = Math.round;
     $scope.humanSize = humanSize;
+    $scope.peerIdToClient = peerIdToClient;
     $scope.show = true;
     $scope.toggleShow = function() {
 	$scope.show = !$scope.show;
@@ -212,5 +213,124 @@ function humanSize(size) {
         return Math.round(size * 10) / 10 + " " + units[0];
     } else {
         return Math.round(size) + " " + units[0];
+    }
+}
+
+var PEER_ID_CLIENTS = {
+    'AB': "AnyEvent::BitTorrent",
+    'AG': "Ares",
+    'A~': "Ares",
+    'AR': "Arctic",
+    'AV': "Avicora",
+    'AT': "Artemis",
+    'AX': "BitPump",
+    'AZ': "Azureus",
+    'BB': "BitBuddy",
+    'BC': "BitComet",
+    'BF': "Bitflu",
+    'BG': "BTG (uses Rasterbar libtorrent)",
+    'BL': "BitBlinder",
+    'BP': "BitTorrent Pro (Azureus + spyware)",
+    'BR': "BitRocket",
+    'BS': "BTSlave",
+    'BT': "BBtor",
+    'BW': "BitWombat",
+    'BX': "~Bittorrent X",
+    'CD': "Enhanced CTorrent",
+    'CT': "CTorrent",
+    'DE': "DelugeTorrent",
+    'DP': "Propagate Data Client",
+    'EB': "EBit",
+    'ES': "electric sheep",
+    'FC': "FileCroc",
+    'FT': "FoxTorrent",
+    'FX': "Freebox BitTorrent",
+    'GS': "GSTorrent",
+    'HK': "Hekate",
+    'HL': "Halite",
+    'HM': "hMule (uses Rasterbar libtorrent)",
+    'HN': "Hydranode",
+    'JS': "Justseed.it client",
+    'JT': "JavaTorrent",
+    'KG': "KGet",
+    'KT': "KTorrent",
+    'LC': "LeechCraft",
+    'LH': "LH-ABC",
+    'LP': "Lphant",
+    'LT': "libtorrent",
+    'lt': "libTorrent",
+    'LW': "LimeWire",
+    'MK': "Meerkat",
+    'MO': "MonoTorrent",
+    'MP': "MooPolice",
+    'MR': "Miro",
+    'MT': "MoonlightTorrent",
+    'NB': "Net::BitTorrent",
+    'NX': "Net Transport",
+    'OS': "OneSwarm",
+    'OT': "OmegaTorrent",
+    'PB': "Protocol::BitTorrent",
+    'PD': "Pando",
+    'PT': "PHPTracker",
+    'qB': "qBittorrent",
+    'QD': "QQDownload",
+    'QT': "Qt 4 Torrent example",
+    'RT': "Retriever",
+    'RZ': "RezTorrent",
+    'S~': "Shareaza alpha/beta",
+    'SB': "~Swiftbit",
+    'SD': "Thunder (aka XùnLéi)",
+    'SM': "SoMud",
+    'SS': "SwarmScope",
+    'ST': "SymTorrent",
+    'st': "sharktorrent",
+    'SZ': "Shareaza",
+    'TE': "terasaur Seed Bank",
+    'TL': "Tribler (versions >= 6.1.0)",
+    'TN': "TorrentDotNET",
+    'TR': "Transmission",
+    'TS': "Torrentstorm",
+    'TT': "TuoTu",
+    'UL': "uLeecher!",
+    'UM': "µTorrent for Mac",
+    'UT': "µTorrent",
+    'VG': "Vagaa",
+    'WT': "BitLet",
+    'WY': "FireTorrent",
+    'XL': "Xunlei",
+    'XS': "XSwifter",
+    'XT': "XanTorrent",
+    'XX': "Xtorrent",
+    'ZT': "ZipTorrent"
+};
+
+/* https://wiki.theory.org/BitTorrentSpecification#peer_id */
+function peerIdToClient(peerId) {
+    if (!peerId)
+	return "";
+
+    peerId = UTF8ArrToStr(peerId);
+
+    var m;
+    if ((m = peerId.match(/^M(\d+)-(\d+)-(\d+)-/))) {
+	return "Mainline/" + m[1] + "." + m[2] + "." + m[3];
+    } else if ((m = peerId.match(/^-(..)(.)(.)(.)(.)-/))) {
+	var version = [m[2], m[3], m[4], m[5]].map(function(v) {
+	    var v1 = v.charCodeAt(0);
+	    if (v1 >= 65 && v1 <= 90)
+		return v1 - 55;
+	    else if (v1 >= 87 && v1 <= 122)
+		return v1 - 77;
+	    else
+		return v;
+	});
+	var client = PEER_ID_CLIENTS[m[1]];
+	if (client)
+	    return client + "/" + version.join(".");
+	else
+	    return m[1] + "/" + version.join(".");
+    } else {
+	/* TODO: Shad0w style */
+	return peerId.slice(0, 8);
     }
 }

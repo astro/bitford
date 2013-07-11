@@ -1,5 +1,6 @@
 var MIME_TYPES = {
     "mp4": "video/mp4",
+    "m4v": "video/mp4",
     "webm": "video/webm",
     "ogv": "video/ogg",
     "mkv": "video/webm",

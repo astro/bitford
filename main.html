@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <title>Bitford</title>
     <script src="angular.js"></script>
+    <script src="base64.js"></script>
     <script src="mime.js"></script>
     <script src="app.js"></script>
     <link rel="stylesheet" type="text/css" href="style.css">
@@ -87,29 +88,42 @@
 	    <span style="background-color: #3f3"> </span>
 	    valid
 	  </p>
-	  <ul ng-show="torrent.peers.length > 0"
-	      class="peers">
-	    <li ng-repeat="peer in torrent.peers">
-	      {{peer.ip}}:{{peer.port}}
-	      {{peer.state}} {{peer.error}}
-	      <span>
-		{{peer.getDonePercent()}}%
-		<span ng-show="peer.choked" style="color: red">C</span>
-		<span ng-hide="peer.choked" style="color: green">U</span>
-		<span ng-show="peer.interested" style="color: blue">I</span>
-		<span ng-hide="peer.interested" style="color: #ccc">N</span>
-		<span ng-show="peer.interesting" style="color: blue">I!</span>
-		<span ng-hide="peer.interesting" style="color: #ccc">N!</span>
-		<span ng-show="peer.state == 'connected'">
-		  {{round(peer.minDelay)}} ms, req
-		  {{peer.requestedChunks.length}}/{{peer.inflightThreshold}},
-		  proc {{peer.inPiecesProcessing}},
-		  {{peer.buffer.length}} buffer
-		  at {{humanSize(peer.rate.getRate())}}/s
-		</span>
-	      </span>
-	    </li>
-	  </ul>
+	  <table ng-show="torrent.peers.length > 0"
+		 class="peers">
+	    <thead>
+	      <tr>
+		<th>Address</th>
+		<th>Client</th>
+		<th>State</th>
+		<th>Up</th>
+		<th>Down</th>
+		<th>Done</th>
+	      </tr>
+	    </thead>
+	    <tbody>
+	      <tr ng-repeat="peer in torrent.peers"
+		  ng-show="peer.state == 'connected'">
+		<td>{{peer.ip}}:{{peer.port}}</td>
+		<td>{{peerIdToClient(peer.peerId)}}</td>
+		<td ng-switch="peer.state">
+		  <span ng-switch-when="connected">
+		    <span ng-show="peer.choked" style="color: red">C</span>
+		    <span ng-hide="peer.choked" style="color: green">U</span>
+		    <span ng-show="peer.interested" style="color: blue">I</span>
+		    <span ng-hide="peer.interested" style="color: #ccc">N</span>
+		    <span ng-show="peer.interesting" style="color: blue">I!</span>
+		    <span ng-hide="peer.interesting" style="color: #ccc">N!</span>
+		  </span>
+		  <span ng-switch-default>
+		    {{peer.state}}<span ng-show="peer.error">: {{peer.error}}</span>
+		  </span>
+		</td>
+		<td>?</td>
+		<td>{{humanSize(peer.rate.getRate())}}/s</td>
+		<td>{{peer.getDonePercent()}}%</td>
+	      </tr>
+	    </tbody>
+	  </table>
 	</div>
 
       </article>
