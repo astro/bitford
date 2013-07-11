@@ -128,7 +128,8 @@ Peer.prototype = {
     },
 
     onData: function(data) {
-	this.sock.pause();
+	if (this.sock)
+	    this.sock.pause();
 	this.downShaped = true;
 	downShaper.enqueue({
 	    amount: data.byteLength,
@@ -146,7 +147,8 @@ Peer.prototype = {
 
 	var fail = function(msg) {
 	    console.warn("sock", this.ip, ":", this.port, "fail", msg);
-	    this.sock.end();
+	    if (this.sock)
+		this.sock.end();
 	    this.state = 'error';
 	    this.error = msg;
 	}.bind(this);
