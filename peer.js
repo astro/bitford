@@ -30,6 +30,7 @@ function Peer(torrent, info) {
     this.inflightThreshold = 10;
     this.inPiecesProcessing = 0;
     this.rate = new RateEstimator();
+    this.pendingChunks = [];
     // We in them
     this.interesting = false;
     this.choking = true;
@@ -191,7 +192,7 @@ Peer.prototype = {
 
     handleMessage: function(data) {
 	// console.log(this.ip, "handleMessage", data.getByte(0), data.length);
-	var piece;
+	var piece, offset, length;
 	switch(data.getByte(0)) {
 	    case 0:
 		/* Choke */
@@ -226,15 +227,33 @@ Peer.prototype = {
 		break;
 	    case 6:
 		/* Request */
+		if (!this.choking) {
+		    piece = data.getWord32BE(1);
+		    offset = data.getWord32BE(5);
+		    length = data.getWord32BE(9);
+		    this.pendingChunks.push({
+			piece: piece,
+			offset: offset,
+			length: length
+		    });
+		}
 		break;
 	    case 7:
 		/* Piece */
 		piece = data.getWord32BE(1);
-		var offset = data.getWord32BE(5);
+		offset = data.getWord32BE(5);
 		this.onPiece(piece, offset, data.getBufferList(9));
 		break;
 	    case 8:
 		/* Cancel */
+		piece = data.getWord32BE(1);
+		offset = data.getWord32BE(5);
+		length = data.getWord32BE(9);
+		this.pendingChunks = this.pendingChunks.filter(function(chunk) {
+		    return chunk.piece === piece &&
+			chunk.offset === offset &&
+			chunk.length === length;
+		});
 		break;
 	}
     },
