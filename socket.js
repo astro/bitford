@@ -122,8 +122,8 @@ TCPSocket.prototype.write = function(data) {
 
 	if (typeof data === 'string')
 	    data = strToUTF8Arr(data);
-	else if (data.buffer)
-		data = data.buffer;
+	if (data.buffer)
+	    data = data.buffer;
 
 	Socket.write(this.sockId, data, function(writeInfo) {
 	    if (writeInfo.bytesWritten < 0) {
