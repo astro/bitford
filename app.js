@@ -333,6 +333,9 @@ function peerIdToClient(peerId) {
 	    else
 		return v;
 	});
+	while(version.length > 1 && (version[version.length - 1] + "") === "0")
+	    version.pop();
+
 	var client = PEER_ID_CLIENTS[m[1]];
 	if (client)
 	    return client + "/" + version.join(".");
