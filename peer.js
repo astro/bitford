@@ -209,6 +209,11 @@ Peer.prototype = {
 		break;
 	    case 2:
 		/* Interested */
+		if (!this.interested) {
+		    /* Unchoke */
+		    this.sendMessage(new Message([1]));
+		    this.choking = false;
+		}
 		this.interested = true;
 		break;
 	    case 3:
