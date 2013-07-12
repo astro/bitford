@@ -27,7 +27,7 @@ function Peer(torrent, info) {
     this.direction = 'outgoing';
     this.buffer = new BufferList();
     this.requestedChunks = [];
-    this.inflightThreshold = 10;
+    this.inflightThreshold = 4;
     this.inPiecesProcessing = 0;
     this.upRate = new RateEstimator();
     this.downRate = new RateEstimator();
@@ -399,6 +399,10 @@ Peer.prototype = {
     canRequest: function() {
 	if (this.choked || !this.sock || !this.sock.drained)
 	    return;
+
+	/* Recalc inflightThreshold according to a BDP with 500ms */
+	this.inflightThreshold = Math.max(4,
+	    Math.ceil(this.downRate.getRate() * 0.5 / CHUNK_LENGTH));
 
 	while(this.requestedChunks.length < this.inflightThreshold) {
 	    var chunk = this.torrent.store.nextToDownload(this);
