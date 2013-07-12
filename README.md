@@ -1,5 +1,6 @@
 ## Roadmap
 
+* Chunks: keep list of requested peers to cancel all only upon reception
 * Transition to seeder
 * Priorities & shaping
 * Re-coordinate hashing

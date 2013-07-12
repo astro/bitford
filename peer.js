@@ -442,24 +442,11 @@ Peer.prototype = {
 
 	var delay = this.minDelay || 500;
 	chunk.timeout = setTimeout(function() {
-	    console.log(this.ip, "chunk timeout", chunk.piece, ":", chunk.offset);
+	    console.log(this.ip, "chunk timeout", chunk.piece, ":", chunk.offset, "after", 5 * this.inflightThreshold * delay);
 	    chunk.timeout = null;
-
-	    /* Cancel */
-	    this.sendCancel(piece, offset, length);
-
-	    if (this.minDelay) {
-		/* Give some time to still come in */
-		setTimeout(function() {
-		    this.removeRequestedChunk(piece, offset, length);
-		    chunk.cancel();
-		}.bind(this), 2 * delay);
-	    } else {
-		this.discardRequestedChunks();
-		if (this.sock)
-		    this.sock.end();
-	    }
-	}.bind(this), 1.5 * this.inflightThreshold * delay);
+	    /* Let so. else try it */
+	    chunk.cancel();
+	}.bind(this), 5 * this.inflightThreshold * delay);
 	this.requestedChunks.push(chunk);
     },
 
