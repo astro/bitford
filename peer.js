@@ -81,29 +81,16 @@ Peer.prototype = {
 	}.bind(this));
     },
 
-    sendMessage: function(buffers, prio) {
-	var len = buffers.byteLength || buffers.length;
+    sendMessage: function(msg, prio) {
+	var buffer = msg.buffer;
 	upShaper.enqueue({
-	    amount: 4 + len,
+	    amount: buffer.byteLength,
 	    prio: prio,
 	    cb: function() {
-		/* Send length */
-		var amount = 4;
-		var lenBuf = new ArrayBuffer(4);
-		new DataView(lenBuf).setUint32(0, len);
-		this.sock.write(lenBuf);
-
-		/* Send data */
-		if (buffers.getBuffers)
-		    buffers.getBuffers().forEach(function(buf) {
-			amount += buf.byteLength;
-			this.sock.write(buf);
-		    }.bind(this));
-		else {
-		    amount += buffers.byteLength;
-		    this.sock.write(buffers);
-		}
-		this.upRate.add(amount);
+		if (this.direction === "incoming")
+		    console.log("sendMessage", new Uint8Array(msg.buffer));
+		this.sock.write(buffer);
+		this.upRate.add(buffer.byteLength);
 	    }.bind(this)
 	});
     },
@@ -132,10 +119,13 @@ Peer.prototype = {
 
     sendBitfield: function() {
 	var bitfield = this.torrent.getBitfield();
-	this.sendMessage(new BufferList([
-	    new Uint8Array([5]),
-	    bitfield
-	]));
+	var msg = new Message(1 + bitfield.byteLength);
+	msg.setInt8(0, 5);
+	/* Copy data :( */
+	for(var i = 0; i < bitfield.byteLength; i++)
+	    msg.setInt8(1 + i, bitfield[i]);
+
+	this.sendMessage(msg);
     },
 
     onData: function(data) {
@@ -184,9 +174,7 @@ Peer.prototype = {
 
 		this.sendBitfield();
 		/* Interested */
-		this.sendMessage(new Uint8Array([2]));
-		/* Unchoke */
-		this.sendMessage(new Uint8Array([1]));
+		this.sendMessage(new Message([2]));
 	    } else if (this.state === 'connected' && !this.messageSize && this.buffer.length >= 4) {
 		this.messageSize = this.buffer.getWord32BE(0);
 		// console.log(this.ip, "messageSize", this.messageSize);
@@ -340,7 +328,7 @@ Peer.prototype = {
 	    /* Change triggered */
 	    this.interesting = true;
 	    /* Interested */
-	    this.sendMessage(new Uint8Array([2]));
+	    this.sendMessage(new Message([2]));
 	}
 	this.interesting = interesting;
 	// TODO: We'll need to send not interested as our pieces complete
@@ -378,18 +366,18 @@ Peer.prototype = {
 	if (this.sock && this.sock.drained) {
 	    var chunk;
 	    if ((chunk = this.pendingChunks.shift())) {
-		var buf = new Uint8Array(9);
-		var bufView = new DataView(buf);
-		bufView.setInt8(0, 7);  /* Piece */
-		bufView.setUint32(1, chunk.piece);
-		bufView.setUint32(5, chunk.offset);
-		var buffers = new BufferList(buf);
 
 		var piece = this.torrent.store.pieces[chunk.piece];
 		if (piece && piece.valid) {
 		    piece.read(chunk.offset, chunk.length, function(data) {
-			buffers.append(data);
-			this.sendMessage(data);
+			var msg = new Message(9);
+			msg.setInt8(0, 7);  /* Piece */
+			msg.setUint32(1, chunk.piece);
+			msg.setUint32(5, chunk.offset);
+			/* Copy data :( */
+			for(var i = 0; i < data.length; i++)
+			    msg.setInt8(9 + i, data.getByte(i));
+			this.sendMessage(msg);
 		    }.bind(this));
 		}
 	    }
@@ -440,13 +428,12 @@ Peer.prototype = {
 	/* Piece request */
 	chunk.sendTime = Date.now();
 
-	var buf = new ArrayBuffer(13);
-	var bufView = new DataView(buf);
-	bufView.setInt8(0, 6);
-	bufView.setUint32(1, piece);
-	bufView.setUint32(5, offset);
-	bufView.setUint32(9, length);
-	this.sendMessage(buf);
+	var msg = new Message(13);
+	msg.setInt8(0, 6);
+	msg.setUint32(1, piece);
+	msg.setUint32(5, offset);
+	msg.setUint32(9, length);
+	this.sendMessage(msg);
 
 	var delay = this.minDelay || 500;
 	chunk.timeout = setTimeout(function() {
@@ -475,21 +462,41 @@ Peer.prototype = {
 	if (!this.sock)
 	    return;
 
-	var buf = new ArrayBuffer(13);
-	var bufView = new DataView(buf);
-	bufView.setInt8(0, 8);
-	bufView.setUint32(1, piece);
-	bufView.setUint32(5, offset);
-	bufView.setUint32(9, length);
-	this.sendMessage(buf);
+	var msg = new Message(13);
+	msg.setInt8(0, 8);
+	msg.setUint32(1, piece);
+	msg.setUint32(5, offset);
+	msg.setUint32(9, length);
+	this.sendMessage(msg);
     },
 
     sendHave: function(piece) {
-	var buf = new ArrayBuffer(5);
-	var bufView = new DataView(buf);
-	bufView.setInt8(0, 4);
-	bufView.setUint32(1, piece);
-	this.sendMessage(buf);
+	var msg = new Message(5);
+	msg.setInt8(0, 4);
+	msg.setUint32(1, piece);
+	this.sendMessage(msg);
+    }
+};
+
+/**
+ * Outgoing packet builder
+ */
+function Message(len) {
+    if (typeof len === 'number')
+	this.buffer = new ArrayBuffer(len + 4);
+    else if (len.__proto__.constructor === Array) {
+	this.buffer = new Uint8Array([0, 0, 0, 0].concat(len)).buffer;
+	len = this.buffer.byteLength - 4;
+    }
+    this.bufferView = new DataView(this.buffer);
+    this.bufferView.setUint32(0, len);
+}
+Message.prototype = {
+    setInt8: function(offset, value) {
+	this.bufferView.setInt8(4 + offset, value);
+    },
+    setUint32: function(offset, value) {
+	this.bufferView.setUint32(4 + offset, value);
     }
 };
 
