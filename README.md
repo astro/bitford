@@ -1,5 +1,6 @@
 ## Roadmap
 
+* Storage: replace File Storage with something that supports sparseness
 * Chunks: keep list of requested peers to cancel all only upon reception
 * Transition to seeder
 * Priorities & shaping

@@ -54,7 +54,7 @@ createHTTPServer(8080, function(req, res) {
 	    torrent.store.consumeFile(path, bytes, function(data) {
 		console.log("consumed", path, bytes, data.byteLength);
 		if (data.byteLength > 0) {
-		    res.write(new Uint8Array(data));
+		    res.write(data);
 		    bytes += data.byteLength;
 		    looping = false;
 		} else

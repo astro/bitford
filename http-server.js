@@ -81,12 +81,16 @@ HTTPServer.prototype = {
 	    }.bind(this),
 	    write: function(data) {
 		if (typeof contentLength == 'number') {
+		    /* With Content-Length: */
 		    this.sock.write(data);
 		    contentLength -= data.byteLength;
 		} else {
-		    this.sock.write(data.byteLength.toString(16) + "\r\n");
-		    this.sock.write(data);
-		    this.sock.write("\r\n");
+		    /* Chunked Transfer-Encoding */
+		    if (data.byteLength > 0) {
+			this.sock.write(data.byteLength.toString(16) + "\r\n");
+			this.sock.write(data);
+			this.sock.write("\r\n");
+		    }
 		}
 	    }.bind(this),
 	    end: function() {
