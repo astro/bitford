@@ -137,7 +137,7 @@ Peer.prototype = {
 	    amount: data.byteLength,
 	    cb: function() {
 		this.downShaped = false;
-		if (this.sock && this.inPiecesProcessing < this.inflightThreshold)
+		if (this.sock && this.inPiecesProcessing < 1)
 		    this.sock.resume();
 	    }.bind(this)
 	});
@@ -271,7 +271,7 @@ Peer.prototype = {
 	this.inPiecesProcessing++;
 	var onProcessed = function() {
 	    this.inPiecesProcessing--;
-	    if (this.sock && !this.downShaped && this.inPiecesProcessing < this.inflightThreshold)
+	    if (this.sock && !this.downShaped && this.inPiecesProcessing < 1)
 		this.sock.resume();
 	}.bind(this);
 
