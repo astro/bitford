@@ -2,31 +2,59 @@
  * Puts all the data in multiple files seperated by offsets, to
  * alleviate lack of sparse files.
  */
-function StoreBackend(basename) {
+function StoreBackend(basename, existingCb) {
     this.basename = basename;
 
     /* Initialize offsets */
-    var offsets = this.offsets = [0];
+    this.offsets = [0];
     /* Look for existing offsets */
     requestFileSystem_(window.PERSISTENT, 0, function(fs) {
 	var reader = fs.root.createReader();
-	reader.readEntries(function(entry) {
-	    var m;
-	    if (entry.isFile &&
-		(m = entry.name.match(/^([0-9a-f]{40}\.(\d+)$/)) &&
-		m[1] === basename) {
+	var read = function() {
+	    reader.readEntries(function(entries) {
+		for(var i = 0; i < entries.length; i++) {
+		    var entry = entries[i];
+		    var m;
+		    if (entry.isFile &&
+			(m = entry.name.match(/^([0-9a-f]{40})\.(\d+)$/)) &&
+			m[1] === basename) {
 
-		offsets.push(parseInt(m[2], 10));
-	    }
-	});
-    });
+			var offset = parseInt(m[2], 10);
+			this.offsets.push(offset);
+			this.offsetsSorted = false;
+			(function(offset) {
+			     entry.file(function(file) {
+				 existingCb(offset, file.size);
+			     });
+			 })(offset);
+		    }
+		}
+		if (entries.length > 0)
+		    /* Loop */
+		    read();
+	    }.bind(this));
+	}.bind(this);
+	read();
+    }.bind(this));
 }
 
 StoreBackend.prototype = {
-    readUpTo: function(offset, maxLength, cb) {
+    getPreviousOffset: function(offset) {
+	if (!this.offsetsSorted) {
+	    this.offsets = this.offsets.sort(function(o1, o2) {
+		return o1 - o2;
+	    });
+	    this.offsetsSorted = true;
+	}
+
 	var previousOffset = 0;
 	for(var i = 0; i < this.offsets.length && this.offsets[i] <= offset; i++)
 	    previousOffset = this.offsets[i];
+	return previousOffset;
+    },
+
+    readUpTo: function(offset, maxLength, cb) {
+	var previousOffset = this.getPreviousOffset(offset);
 	var partOffset = offset - previousOffset;
 
 	requestFileSystem_(window.PERSISTENT, 0, function(fs) {
@@ -36,6 +64,8 @@ StoreBackend.prototype = {
 		entry.file(function(file) {
 		    var reader = new FileReader();
 		    reader.onload = function() {
+			if (reader.result.byteLength < 1)
+			    console.warn("Read nothing from", partOffset, "/", file.size);
 			cb(reader.result);
 		    };
 		    reader.onerror = function(error) {
@@ -70,9 +100,7 @@ StoreBackend.prototype = {
     },
 
     write: function(offset, data, cb) {
-	var previousOffset = 0;
-	for(var i = 0; i < this.offsets.length && this.offsets[i] <= offset; i++)
-	    previousOffset = this.offsets[i];
+	var previousOffset = this.getPreviousOffset(offset);
 	var partOffset = offset - previousOffset;
 
 	requestFileSystem_(window.PERSISTENT, 0, function(fs) {
@@ -83,7 +111,7 @@ StoreBackend.prototype = {
 		    if (file.size < partOffset) {
 			/* Create new part for sparseness */
 			this.offsets.splice(i, 0, [offset]);
-			// TODO: slice data
+			this.offsetsSorted = false;  // TODO: remove?
 			return this.write(offset, data, cb);
 		    }
 

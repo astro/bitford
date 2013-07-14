@@ -11,7 +11,7 @@ function Store(infoHash, files, pieceHashes, pieceLength) {
     this.pieceLength = pieceLength;
 
     var infoHashHex = bufferToHex(infoHash);
-    this.backend = new StoreBackend(infoHashHex);
+    this.backend = new StoreBackend(infoHashHex, this.onExisting.bind(this));
 
     this.pieces = [];
     /* Build pieces... */
@@ -40,6 +40,22 @@ function Store(infoHash, files, pieceHashes, pieceLength) {
     this.sha1Worker = new SHA1Worker();
 }
 Store.prototype = {
+    /* Called back by StoreBackend() when initializing */
+    onExisting: function(offset, length) {
+	// console.log("existingCb", offset, length);
+	for(var i = 0; i < this.pieces.length; i++) {
+	    var pieceOffset = i * this.pieceLength;
+	    var piece = this.pieces[i];
+	    for(var j = 0; j < piece.chunks.length; j++) {
+		var chunk = piece.chunks[j];
+		if (pieceOffset + chunk.offset >= offset &&
+		    chunk.length <= length)
+		    chunk.state = 'written';
+	    }
+	}
+	this.mayHash();
+    },
+
     remove: function() {
 	if (this.sha1Worker) {
 	    this.sha1Worker.terminate();
