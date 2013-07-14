@@ -102,8 +102,14 @@ StoreBackend.prototype = {
 	}.bind(this));
     },
 
-    // TODO
     remove: function() {
+	requestFileSystem_(window.PERSISTENT, 0, function(fs) {
+	    this.offsets.forEach(function(offset) {
+		fs.root.getFile(this.basename + "." + this.offset, {}, function(entry) {
+		    entry.remove(function() { });
+		});
+	    }.bind(this));
+	}.bind(this));
     }
 };
 

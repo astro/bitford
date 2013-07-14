@@ -36,19 +36,8 @@ function Store(infoHash, files, pieceHashes, pieceLength) {
 	this.pieces.push(new StorePiece(this, this.pieces.length, chunks, pieceHashes[this.pieces.length]));
     }
     this.fileEntries = {};
-    // TODO:
-    this.removeFiles = function() {
-	files.forEach(function(file) {
-	    this.withFileEntry(file.path, function(entry) {
-		entry.remove(function() { });
-	    });
-	}.bind(this));
-    };
 
     this.sha1Worker = new SHA1Worker();
-
-    /* Start hashing existing files */
-    // TODO
 }
 Store.prototype = {
     remove: function() {
@@ -177,6 +166,7 @@ Store.prototype = {
 	    this.hashingPiece = this.nextToHash();
 
 	if (this.hashingPiece) {
+console.log("hashingPiece", this.hashingPiece);
 	    this.hashingPiece.continueHashing(function() {
 		this.hashing = false;
 		this.mayHash();
