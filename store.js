@@ -285,12 +285,20 @@ StorePiece.prototype = {
 	    data.take(this.sha1pos - offset);
 	}
 	// console.log("piece", this.store.pieces.indexOf(this), "canHash", offset, this.sha1pos);
+	var pendingUpdates = 1;
+	function onUpdated() {
+	    pendingUpdates--;
+	    if (pendingUpdates < 1 && cb)
+		cb();
+	}
 	data.buffers.forEach(function(buf) {
 	    this.sha1pos += buf.byteLength;
 	    /* TODO: could add asynchronous back-pressure with a cb() */
-	    this.store.sha1Worker.update(this.pieceNumber, buf);
+	    this.store.sha1Worker.update(this.pieceNumber, buf, onUpdated);
+	    pendingUpdates++;
 	    /* buf is neutered here, don't reuse data */
 	}.bind(this));
+	onUpdated();
 
 	var chunk;
 	for(var i = 0; i < this.chunks.length; i++) {
@@ -306,10 +314,8 @@ StorePiece.prototype = {
 	    /* No piece followed, validate hash */
 	    this.store.sha1Worker.finalize(this.pieceNumber, function(hash) {
 		this.onHashed(hash);
-		cb();
 	    }.bind(this));
-	} else
-	    cb();
+	}
     },
 
     canContinueHashing: function() {
