@@ -29,6 +29,7 @@
 		"torrent.js",
 		"tracker.js",
 		"peer.js",
+		"store-backend.js",
 		"store.js",
 		"http-server.js",
 		"http-stream.js",

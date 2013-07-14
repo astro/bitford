@@ -129,9 +129,10 @@ Peer.prototype = {
     },
 
     onData: function(data) {
-	if (this.sock)
+	if (this.sock) {
 	    this.sock.pause();
-	this.downShaped = true;
+	    this.downShaped = true;
+	}
 	downShaper.enqueue({
 	    amount: data.byteLength,
 	    cb: function() {
