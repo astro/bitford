@@ -64,11 +64,12 @@ h1 {
 }
 .pieces-container .pieces-scroll {
     max-width: 100%;
-    overflow-x: scroll;
+    overflow-x: auto;
+    margin: 0.5em 1em 0 0;
 }
 .pieces-container canvas.pieces {
     display: inline-block;
-    margin: 0.5em 1em 0 0;
+    margin: 0;
     border: 1px solid #333;
 }
 .pieces-container .pieces-legend {
