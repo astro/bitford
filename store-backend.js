@@ -20,13 +20,15 @@ function StoreBackend(basename, existingCb) {
 			m[1] === basename) {
 
 			var offset = parseInt(m[2], 10);
-			this.offsets.push(offset);
-			this.offsetsSorted = false;
-			(function(offset) {
+			if (this.offsets.indexOf(offset) < 0) {
+			    this.offsets.push(offset);
+			    this.offsetsSorted = false;
+			}
+			(function(offset, entry) {
 			     entry.file(function(file) {
 				 existingCb(offset, file.size);
 			     });
-			 })(offset);
+			 })(offset, entry);
 		    }
 		}
 		if (entries.length > 0)
@@ -110,8 +112,8 @@ StoreBackend.prototype = {
 		entry.file(function(file) {
 		    if (file.size < partOffset) {
 			/* Create new part for sparseness */
-			this.offsets.splice(i, 0, [offset]);
-			this.offsetsSorted = false;  // TODO: remove?
+			this.offsets.push(offset);
+			this.offsetsSorted = false;
 			return this.write(offset, data, cb);
 		    }
 
@@ -134,7 +136,7 @@ StoreBackend.prototype = {
     remove: function() {
 	requestFileSystem_(window.PERSISTENT, 0, function(fs) {
 	    this.offsets.forEach(function(offset) {
-		fs.root.getFile(this.basename + "." + this.offset, {}, function(entry) {
+		fs.root.getFile(this.basename + "." + offset, {}, function(entry) {
 		    entry.remove(function() { });
 		});
 	    }.bind(this));

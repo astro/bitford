@@ -42,14 +42,16 @@ function Store(infoHash, files, pieceHashes, pieceLength) {
 Store.prototype = {
     /* Called back by StoreBackend() when initializing */
     onExisting: function(offset, length) {
-	// console.log("existingCb", offset, length);
-	for(var i = 0; i < this.pieces.length; i++) {
+	for(var i = Math.floor(offset / this.pieceLength);
+	    i < this.pieces.length && i < (offset + length) / this.pieceLength;
+	    i++) {
+
 	    var pieceOffset = i * this.pieceLength;
 	    var piece = this.pieces[i];
 	    for(var j = 0; j < piece.chunks.length; j++) {
 		var chunk = piece.chunks[j];
 		if (pieceOffset + chunk.offset >= offset &&
-		    chunk.length <= length)
+		    pieceOffset + chunk.offset + chunk.length <= offset + length)
 		    chunk.state = 'written';
 	    }
 	}
