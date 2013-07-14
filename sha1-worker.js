@@ -10,15 +10,11 @@ var onmessage = function(ev) {
 	if (!sha1s.hasOwnProperty(update.index))
 	    sha1s[update.index] = new Digest.SHA1();
 	sha1s[update.index].update(update.data);
-	// TODO: back-pressure
+	// for back-pressure
+	postMessage({ });
     } else if (finalize) {
 	var hash = sha1s[finalize.index].finalize();
 	delete sha1s[finalize.index];
-	postMessage({
-	    finalized: {
-		index: finalize.index,
-		hash: hash
-	    }
-	}, [hash]);
+	postMessage({ hash: hash }, [hash]);
     }
 };

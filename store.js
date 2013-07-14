@@ -45,12 +45,7 @@ function Store(infoHash, files, pieceHashes, pieceLength) {
 	}.bind(this));
     };
 
-    this.sha1Worker = new Worker("sha1-worker.js");
-    this.sha1Worker.onmessage = function(ev) {
-	var finalized = ev.data.finalized;
-	if (finalized)
-	    this.pieces[finalized.index].onHashed(finalized.hash);
-    }.bind(this);
+    this.sha1Worker = new SHA1Worker();
 
     /* Start hashing existing files */
     // TODO
@@ -183,7 +178,6 @@ Store.prototype = {
 
 	if (this.hashingPiece) {
 	    this.hashingPiece.continueHashing(function() {
-		console.log("continueHashing cb");
 		this.hashing = false;
 		this.mayHash();
 	    }.bind(this));
@@ -290,13 +284,8 @@ StorePiece.prototype = {
 	// console.log("piece", this.store.pieces.indexOf(this), "canHash", offset, this.sha1pos);
 	data.buffers.forEach(function(buf) {
 	    this.sha1pos += buf.byteLength;
-	    // TODO: move these internals to Store?
-	    this.store.sha1Worker.postMessage({
-		update: {
-		    index: this.pieceNumber,
-		    data: buf
-		}
-	    }, [buf]);
+	    /* TODO: could add asynchronous back-pressure with a cb() */
+	    this.store.sha1Worker.update(this.pieceNumber, buf);
 	    /* buf is neutered here, don't reuse data */
 	}.bind(this));
 
@@ -312,14 +301,12 @@ StorePiece.prototype = {
 	}
 	if (i >= this.chunks.length) {
 	    /* No piece followed, validate hash */
-	    // TODO: move these internals to Store?
-	    this.store.sha1Worker.postMessage({
-		finalize: {
-		    index: this.pieceNumber
-		}
-	    });
-	}
-	cb();
+	    this.store.sha1Worker.finalize(this.pieceNumber, function(hash) {
+		this.onHashed(hash);
+		cb();
+	    }.bind(this));
+	} else
+	    cb();
     },
 
     canContinueHashing: function() {
@@ -403,6 +390,40 @@ StorePiece.prototype = {
 	    this.onValidCbs.push(cb);
 	    this.store.onPieceMissing(this.pieceNumber);
 	}
+    }
+};
+
+function SHA1Worker() {
+    this.worker = new Worker("sha1-worker.js");
+    this.queue = [];
+    this.worker.onmessage = function(ev) {
+	var cb = this.queue.shift();
+	if (cb)
+	    cb(ev.data);
+    }.bind(this);
+}
+SHA1Worker.prototype = {
+    update: function(index, data, cb) {
+	this.worker.postMessage({
+	    update: {
+		index: index,
+		data: data
+	    }
+	}, [data]);
+	this.queue.push(cb);
+    },
+    finalize: function(index, cb) {
+	this.worker.postMessage({
+	    finalize: {
+		index: index
+	    }
+	});
+	this.queue.push(function(data) {
+	    cb(data.hash);
+	});
+    },
+    terminate: function() {
+	this.worker.terminate();
     }
 };
 
