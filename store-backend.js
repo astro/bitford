@@ -40,6 +40,7 @@ StoreBackend.prototype = {
 		    };
 		    reader.onerror = function(error) {
 			console.error("readUpTo", offset, maxLength, error);
+			cb();
 		    };
 		    reader.readAsArrayBuffer(file.slice(partOffset, partOffset + maxLength));
 		});
@@ -55,7 +56,7 @@ StoreBackend.prototype = {
 		return cb(result);
 
 	    this.readUpTo(offset, remain, function(data) {
-		var len = data.byteLength;
+		var len = data ? data.byteLength : 0;
 		if (len > 0) {
 		    result.append(data);
 		    readFrom(offset + len, remain - len);

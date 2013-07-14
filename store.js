@@ -102,7 +102,6 @@ Store.prototype = {
 	return Math.floor(100 * done / this.pieces.length);
     },
 
-    // TODO
     consumeFile: function(path, offset, cb) {
 	for(var i = 0; i < this.pieces.length; i++) {
 	    var piece = this.pieces[i];
@@ -111,14 +110,12 @@ Store.prototype = {
 		var chunk = piece.chunks[j];
 		if (arrayEq(chunk.path, path) && chunk.fileOffset <= offset && chunk.fileOffset + chunk.length > offset) {
 		    found = true;
-		    length += chunk.fileOffset - offset + chunk.length;
-		} else if (found && arrayEq(chunk.path, path) && chunk.fileOffset > offset) {
-		    length += chunk.length;
+		    break;
 		}
 	    }
 	    if (found) {
 		piece.addOnValid(function() {
-		    this.readFile(path, offset, length, function(data) {
+		    this.backend.readUpTo(chunk.fileOffset, chunk.length, function(data) {
 			cb(data);
 		    });
 		}.bind(this));
@@ -166,7 +163,7 @@ Store.prototype = {
 	    this.hashingPiece = this.nextToHash();
 
 	if (this.hashingPiece) {
-console.log("hashingPiece", this.hashingPiece);
+	    // console.log("hashingPiece", this.hashingPiece);
 	    this.hashingPiece.continueHashing(function() {
 		this.hashing = false;
 		this.mayHash();
