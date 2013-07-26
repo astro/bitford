@@ -175,7 +175,11 @@ Peer.prototype = {
 
 		this.sendBitfield();
 		/* Interested */
+		this.interesting = true;
 		this.sendMessage(new Message([2]));
+		/* Unchoke by default */
+		this.choking = false;
+		this.sendMessage(new Message([1]));
 	    } else if (this.state === 'connected' && !this.messageSize && this.buffer.length >= 4) {
 		this.messageSize = this.buffer.getWord32BE(0);
 		// console.log(this.ip, "messageSize", this.messageSize);
@@ -210,7 +214,7 @@ Peer.prototype = {
 		break;
 	    case 2:
 		/* Interested */
-		if (!this.interested) {
+		if (!this.interested && this.choking) {
 		    /* Unchoke */
 		    this.sendMessage(new Message([1]));
 		    this.choking = false;
@@ -376,7 +380,7 @@ Peer.prototype = {
 		var piece = this.torrent.store.pieces[chunk.piece];
 		if (piece && piece.valid) {
 		    piece.read(chunk.offset, chunk.length, function(data) {
-			var msg = new Message(9);
+			var msg = new Message(9 + data.length);
 			msg.setInt8(0, 7);  /* Piece */
 			msg.setUint32(1, chunk.piece);
 			msg.setUint32(5, chunk.offset);
