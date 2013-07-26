@@ -3,7 +3,17 @@ function Torrent(meta) {
     this.name = UTF8ArrToStr(meta.info.name);
     this.pieces = Math.floor(meta.info.pieces.byteLength / 20);
     this.infoHash = meta.infoHash;
-    this.peerId = "-BF000-xxxxxxxxxxxxx";
+    this.peerId = "-BF000-";
+    while (this.peerId.length < 20) {
+	var r = Math.floor(62 * Math.random()), c;
+	if (r < 10)
+	    c = 48 + r;  /* 0..9 */
+	else if (r < 36)
+	    c = 65 + r - 10;  /* A..Z */
+	else if (r < 62)
+	    c = 97 + r - 36;  /* a..z */
+	this.peerId += String.fromCharCode(c);
+    }
     this.upRate = new RateEstimator();
     this.downRate = new RateEstimator();
     this.peers = [];
