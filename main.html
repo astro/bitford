@@ -43,7 +43,8 @@
 	<p class="size">
 	  {{torrent.store.getDonePercent()}}%
 	  of {{humanSize(torrent.store.size)}}
-	  at {{humanSize(torrent.downRate.getRate())}}/s
+	  at {{humanSize(torrent.upRate.getRate())}}/s up,
+          {{humanSize(torrent.downRate.getRate())}}/s down
 	</p>
 	<div ng-show="show">
 	  <div>

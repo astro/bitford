@@ -388,6 +388,7 @@ Peer.prototype = {
 			for(var i = 0; i < data.length; i++)
 			    msg.setInt8(9 + i, data.getByte(i));
 			this.sendMessage(msg);
+			this.torrent.upRate.add(data.length);
 		    }.bind(this));
 		}
 	    }
