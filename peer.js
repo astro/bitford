@@ -325,7 +325,7 @@ Peer.prototype = {
 		    if (b & (1 << j))
 			present++;
 	}
-	this.donePercent = Math.floor(100 * Math.max(1, present / this.torrent.pieces));
+	this.donePercent = Math.floor(100 * Math.min(1, present / this.torrent.pieces));
 	return this.donePercent;
     },
 
