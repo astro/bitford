@@ -173,6 +173,11 @@ Peer.prototype = {
 		if (!bufferEq(this.infoHash, this.torrent.infoHash))
 		    return fail("InfoHash mismatch");
 
+		/** Pre-create bitfield to allow newly start up
+		 *  leechers to omit the pieces message.
+		 **/
+		this.bitfield = new Uint8Array(Math.ceil(this.torrent.pieces / 8));
+
 		this.sendBitfield();
 		/* Interested */
 		this.interesting = true;
