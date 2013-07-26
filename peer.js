@@ -427,7 +427,7 @@ Peer.prototype = {
 		    console.log("peer", peer.ip, "has max reqs:", maxReqs);
 		    chunk = peer.requestedChunks.pop();
 		    peer.sendCancel(chunk.piece, chunk.offset, chunk.length);
-		    if (chunk) {
+		    if (chunk && this.has(chunk.piece)) {
 			console.log(this.ip, "stole from", peer.ip, ":", chunk);
 			chunk.peer = this;
 			this.request(chunk);
