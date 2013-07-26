@@ -90,6 +90,10 @@ Torrent.prototype = {
 
     getBitfield: function() {
 	var result = new Uint8Array(Math.ceil(this.pieces / 8));
+	var pieces = this.store.pieces;
+	for(var i = 0; i < pieces.length; i++)
+	    if (pieces[i].valid)
+		result[Math.floor(i / 8)] |= 1 << (7 - (i % 8));
 	return result;
     },
 
