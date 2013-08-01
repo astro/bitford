@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   viewBox="0 0 512 512"
+   id="svg3053"
+   version="1.1"
+   inkscape:version="0.48.4 r9939"
+   width="100%"
+   height="100%"
+   sodipodi:docname="HTML5_logo_and_wordmark.svg">
+  <metadata
+     id="metadata3081">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title>HTML5 Logo</dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <defs
+     id="defs3079" />
+  <sodipodi:namedview
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1"
+     objecttolerance="10"
+     gridtolerance="10"
+     guidetolerance="10"
+     inkscape:pageopacity="0"
+     inkscape:pageshadow="2"
+     inkscape:window-width="1366"
+     inkscape:window-height="754"
+     id="namedview3077"
+     showgrid="false"
+     inkscape:zoom="1.0878906"
+     inkscape:cx="169.24255"
+     inkscape:cy="240.53754"
+     inkscape:window-x="0"
+     inkscape:window-y="14"
+     inkscape:window-maximized="0"
+     inkscape:current-layer="svg3053" />
+  <title
+     id="title3055">HTML5 Logo</title>
+  <polygon
+     points="437.367,100.62 404.321,470.819 255.778,512 107.644,470.877 74.633,100.62 "
+     id="polygon3057"
+     style="fill:#2ca02c"
+     transform="translate(0,-39.526033)" />
+  <polygon
+     points="404.27,130.894 256,130.894 256,480.523 376.03,447.246 "
+     id="polygon3059"
+     style="fill:#37c837"
+     transform="translate(0,-39.526033)" />
+  <path
+     style="fill:#afe9af;fill-opacity:1"
+     d="m 142.125,136.77822 1.09375,12.1875 11.15625,125.125 0.0312,0 8.375,94.03125 93,25.8125 0.21875,-0.0625 0,-47.25 -0.1875,0.0625 -50.59375,-13.65625 -5.21875,-58.9375 56,0 0,-45.40625 -60.09375,0 -3.9375,-44.09375 -0.21875,-2.40625 -4.125,-45.40625 -45.5,0 z"
+     id="polygon3061"
+     inkscape:connector-curvature="0" />
+  <polygon
+     points="311.761,313.627 306.49,372.521 255.843,386.191 255.843,433.435 348.937,407.634 349.62,399.962 360.291,280.411 361.399,268.217 349.162,268.217 255.843,268.217 255.843,313.627 "
+     id="polygon3073"
+     style="fill:#ffffff"
+     transform="translate(0,-39.526033)" />
+</svg>

@@ -56,7 +56,8 @@
         }]
     },
     "icons": {
-	"128": "icon128.png",
-	"48": "icon48.png"
+	"128": "bitford-128.png",
+	"48": "bitford-48.png",
+	"16": "bitford-16.png"
     }
 }
