@@ -79,6 +79,7 @@ Store.prototype = {
 	return false;
     },
 
+    // TODO: could return up to a number chunks (optimization)
     nextToDownload: function(peer) {
 	var readahead = 0;
 	var eligiblePieces = this.pieces.filter(function(piece) {
@@ -157,6 +158,7 @@ Store.prototype = {
 	    cb();
     },
 
+    // TODO: could refactor out
     nextToHash: function() {
 	var i;
 	for(i = 0; i < this.pieces.length; i++) {
@@ -268,6 +270,7 @@ StorePiece.prototype = {
 
 	    for(var i = 0; i < this.chunks.length; i++) {
 		var chunk = this.chunks[i];
+		// TODO: may need to write to multiple chunks in multi-file torrents
 		if (chunk.offset === offset &&
 		    chunk.length === data.length)
 		    chunk.state = 'written';
@@ -294,7 +297,6 @@ StorePiece.prototype = {
 	}
 	data.buffers.forEach(function(buf) {
 	    this.sha1pos += buf.byteLength;
-	    /* TODO: could add asynchronous back-pressure with a cb() */
 	    this.store.sha1Worker.update(this.pieceNumber, buf, onUpdated);
 	    pendingUpdates++;
 	    /* buf is neutered here, don't reuse data */

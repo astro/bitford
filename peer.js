@@ -20,6 +20,7 @@ function servePeer(sock, cb) {
     });
 }
 
+// TODO: refactor wire protocol handling out
 function Peer(torrent, info) {
     this.torrent = torrent;
     this.ip = info.ip;
@@ -159,6 +160,7 @@ Peer.prototype = {
 	    if (this.state === 'handshake' && this.buffer.length >= 20 + 8 + 20 + 20) {
 		if (this.buffer.getByte(0) != 19 ||
 		    UTF8ArrToStr(new Uint8Array(this.buffer.slice(1, 20))) != "BitTorrent protocol") {
+		    console.warn("Handshake mismatch", UTF8ArrToStr(new Uint8Array(this.buffer.slice(0, 20))));
 		    return fail("Handshake mismatch");
 		}
 		this.infoHash = new Uint8Array(this.buffer.slice(20 + 8, 20 + 8 + 20));
