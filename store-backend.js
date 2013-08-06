@@ -64,10 +64,13 @@ StoreBackend.prototype = {
 		create: true
 	    }, function(entry) {
 		entry.file(function(file) {
+		    if (partOffset >= file.size)
+			console.warn("Trying to at", partOffset, "from", file.size);
 		    var reader = new FileReader();
 		    reader.onload = function() {
+			/* FIXME: Happens on consumeFile */
 			if (reader.result.byteLength < 1)
-			    console.warn("Read nothing from", partOffset, "/", file.size);
+			    console.warn("Read nothing from", partOffset, "/", file.size, "at", offset, "-", previousOffset);
 			cb(reader.result);
 		    };
 		    reader.onerror = function(error) {
@@ -93,7 +96,7 @@ StoreBackend.prototype = {
 		    result.append(data);
 		    readFrom(offset + len, remain - len);
 		} else {
-		    console.error("Read", len, "instead of", remain);
+		    console.error("Read", len, "instead of", remain, "from", offset);
 		    return cb(result);
 		}
 	    });
@@ -112,22 +115,24 @@ StoreBackend.prototype = {
 		entry.file(function(file) {
 		    if (file.size < partOffset) {
 			/* Create new part for sparseness */
+			console.log("New offset", offset, "after", file.size, "<", partOffset);
 			this.offsets.push(offset);
 			this.offsetsSorted = false;
-			return this.write(offset, data, cb);
+			this.write(offset, data, cb);
+		    } else {
+			entry.createWriter(function(writer) {
+			    writer.onwriteend = function() {
+				// console.log("written in", previousOffset, "new size:", file.size + data.length);
+				cb();
+			    };
+			    writer.onerror = function(error) {
+				console.error("write", error);
+				cb();
+			    };
+			    writer.seek(partOffset);
+			    writer.write(data.toBlob());
+			});
 		    }
-
-		    entry.createWriter(function(writer) {
-			writer.onwriteend = function() {
-			    cb();
-			};
-			writer.onerror = function(error) {
-			    console.error("write", error);
-			    cb();
-			};
-			writer.seek(partOffset);
-			writer.write(data.toBlob());
-		    });
 		}.bind(this));
 	    }.bind(this));
 	}.bind(this));
