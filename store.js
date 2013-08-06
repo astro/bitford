@@ -124,20 +124,19 @@ Store.prototype = {
 	for(var i = 0; i < this.pieces.length; i++) {
 	    var piece = this.pieces[i];
 	    var found = false, length = 0;
-	    for(var j = 0; j < piece.chunks.length; j++) {
+	    for(var j = 0; !found && j < piece.chunks.length; j++) {
 		var chunk = piece.chunks[j];
-		if (arrayEq(chunk.path, path) && chunk.fileOffset <= offset && chunk.fileOffset + chunk.length > offset) {
-		    found = true;
-		    break;
-		}
+		found = arrayEq(chunk.path, path) &&
+		    chunk.fileOffset <= offset &&
+		    chunk.fileOffset + chunk.length > offset;
 	    }
 	    if (found) {
 		piece.addOnValid(function() {
-		    this.backend.readUpTo(chunk.fileOffset, chunk.length, function(data) {
+		    this.backend.readUpTo(i * this.pieceLength + chunk.offset, chunk.length, function(data) {
 			cb(data);
 		    });
 		}.bind(this));
-		return;
+		break;
 	    }
 	}
     },
