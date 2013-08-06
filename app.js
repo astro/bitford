@@ -51,8 +51,8 @@ app.directive('piecesCanvas', function() {
 		ctx.fillRect(0, 0, canvas.width, canvas.height);
 
 		for(var x = 0; x < pieces.length; x++) {
-		    var x1 = canvas.width * x / pieces.length;
-		    var x2 = canvas.width * (x + 1) / pieces.length;
+		    var x1 = Math.floor(canvas.width * x / pieces.length);
+		    var x2 = Math.floor(canvas.width * (x + 1) / pieces.length);
 		    if (pieces[x].valid) {
 			ctx.fillStyle = "#3f3";
 			ctx.fillRect(x1, 0, x2, canvas.height);
