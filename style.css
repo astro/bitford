@@ -83,7 +83,7 @@ h1 {
     width: 0.5em;
     height: 0.5em;
     line-height: 0.5em;
-    vertical-align: middle;
+    vertical-align: baseline;
     border: 1px solid #333;
     margin: 0 0.1em 0 0.7em;
 }
