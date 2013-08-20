@@ -1,86 +1,84 @@
+window.indexedDB = window.indexedDB || window.mozIndexedDB || window.webkitIndexedDB || window.msIndexedDB;
+window.IDBTransaction = window.IDBTransaction || window.webkitIDBTransaction || window.msIDBTransaction;
+window.IDBKeyRange = window.IDBKeyRange || window.webkitIDBKeyRange || window.msIDBKeyRange;
+
 /**
  * Puts all the data in multiple files seperated by offsets, to
  * alleviate lack of sparse files.
  */
 function StoreBackend(basename, existingCb) {
-    this.basename = basename;
+    var dbName = "bitford." + basename;
+    var req = indexedDB.open(dbName, 1);
+    req.onerror = function() {
+	console.error("indexedDB", arguments);
+    };
+    this.onOpenCbs = [];
+    req.onupgradeneeded = function(event) {
+	var db = event.target.result;
+	var objectStore = db.createObjectStore('chunks');
+    };
+    req.onsuccess = function(event) {
+	this.db = event.target.result;
+	if (!this.db)
+	    throw "No DB";
 
-    /* Initialize offsets */
-    this.offsets = [0];
-    /* Look for existing offsets */
-    requestFileSystem_(window.PERSISTENT, 0, function(fs) {
-	var reader = fs.root.createReader();
-	var read = function() {
-	    reader.readEntries(function(entries) {
-		for(var i = 0; i < entries.length; i++) {
-		    var entry = entries[i];
-		    var m;
-		    if (entry.isFile &&
-			(m = entry.name.match(/^([0-9a-f]{40})\.(\d+)$/)) &&
-			m[1] === basename) {
+	var onOpenCbs = this.onOpenCbs;
+	delete this.onOpenCbs;
+	onOpenCbs.forEach(function(cb) {
+	    cb();
+	});
+    }.bind(this);
 
-			var offset = parseInt(m[2], 10);
-			if (this.offsets.indexOf(offset) < 0) {
-			    this.offsets.push(offset);
-			    this.offsetsSorted = false;
-			}
-			(function(offset, entry) {
-			     entry.file(function(file) {
-				 existingCb(offset, file.size);
-			     });
-			 })(offset, entry);
-		    }
-		}
-		if (entries.length > 0)
-		    /* Loop */
-		    read();
-	    }.bind(this));
-	}.bind(this);
-	read();
-    }.bind(this));
+    this.remove = function() {
+	indexedDB.deleteDatabase(dbName);
+    };
 }
 
 StoreBackend.prototype = {
-    getPreviousOffset: function(offset) {
-	if (!this.offsetsSorted) {
-	    this.offsets = this.offsets.sort(function(o1, o2) {
-		return o1 - o2;
-	    });
-	    this.offsetsSorted = true;
+    /**
+     * mode :: "readonly" or "readwrite"
+     */
+    transaction: function(mode, cb, finalCb) {
+	if (this.db) {
+	    var tx = this.db.transaction(['chunks'], mode);
+	    tx.onerror = function(e) {
+		console.error("store tx", e);
+		if (finalCb)
+		    finalCb(e);
+	    };
+	    tx.oncomplete = function() {
+		if (finalCb)
+		    finalCb();
+	    };
+	    cb(tx.objectStore('chunks'));
+	} else {
+	    this.onOpenCbs.push(function() {
+		this.transaction(mode, cb, finalCb);
+	    }.bind(this));
 	}
-
-	var previousOffset = 0;
-	for(var i = 0; i < this.offsets.length && this.offsets[i] <= offset; i++)
-	    previousOffset = this.offsets[i];
-	return previousOffset;
     },
 
     readUpTo: function(offset, maxLength, cb) {
-	var previousOffset = this.getPreviousOffset(offset);
-	var partOffset = offset - previousOffset;
-
-	requestFileSystem_(window.PERSISTENT, 0, function(fs) {
-	    fs.root.getFile(this.basename + "." + previousOffset, {
-		create: true
-	    }, function(entry) {
-		entry.file(function(file) {
-		    if (partOffset >= file.size)
-			console.warn("Trying to at", partOffset, "from", file.size);
-		    var reader = new FileReader();
-		    reader.onload = function() {
-			/* FIXME: Happens on consumeFile */
-			if (reader.result.byteLength < 1)
-			    console.warn("Read nothing from", partOffset, "/", file.size, "at", offset, "-", previousOffset);
-			cb(reader.result);
-		    };
-		    reader.onerror = function(error) {
-			console.error("readUpTo", offset, maxLength, error);
-			cb();
-		    };
-		    reader.readAsArrayBuffer(file.slice(partOffset, partOffset + maxLength));
-		});
-	    });
-	}.bind(this));
+	this.transaction("readonly", function(objectStore) {
+	    var req = objectStore.get(offset);
+	    req.onsuccess = function(event) {
+		var data = req.result;
+		if (data)
+		    cb(req.result.slice(0, maxLength));
+		else if (offset > 0) {
+		    this.readUpTo(offset - 1, maxLength + 1, function(data) {
+			cb(data.slice(1));
+		    });
+		} else {
+		    console.error("store readUpTo offset too low", offset);
+		    cb();
+		}
+	    }.bind(this);
+	    req.onerror = function(e) {
+		console.error("store read", offset, e);
+		cb();
+	    };
+	});
     },
 
     read: function(offset, length, cb) {
@@ -105,49 +103,10 @@ StoreBackend.prototype = {
     },
 
     write: function(offset, data, cb) {
-	var previousOffset = this.getPreviousOffset(offset);
-	var partOffset = offset - previousOffset;
-
-	requestFileSystem_(window.PERSISTENT, 0, function(fs) {
-	    fs.root.getFile(this.basename + "." + previousOffset, {
-		create: true
-	    }, function(entry) {
-		entry.file(function(file) {
-		    if (file.size < partOffset) {
-			/* Create new part for sparseness */
-			console.log("New offset", offset, "after", file.size, "<", partOffset);
-			this.offsets.push(offset);
-			this.offsetsSorted = false;
-			this.write(offset, data, cb);
-		    } else {
-			entry.createWriter(function(writer) {
-			    writer.onwriteend = function() {
-				// console.log("written in", previousOffset, "new size:", file.size + data.length);
-				cb();
-			    };
-			    writer.onerror = function(error) {
-				console.error("write", error);
-				cb();
-			    };
-			    writer.seek(partOffset);
-			    writer.write(data.toBlob());
-			});
-		    }
-		}.bind(this));
-	    }.bind(this));
-	}.bind(this));
-    },
-
-    remove: function() {
-	requestFileSystem_(window.PERSISTENT, 0, function(fs) {
-	    this.offsets.forEach(function(offset) {
-		fs.root.getFile(this.basename + "." + offset, {}, function(entry) {
-		    entry.remove(function() { });
-		});
-	    }.bind(this));
+	data.readAsArrayBuffer(function(buf) {
+	    this.transaction("readwrite", function(objectStore) {
+		objectStore.put(buf, offset);
+	    }, cb);
 	}.bind(this));
     }
 };
-
-var requestFileSystem_ = window.requestFileSystem ||
-    window.webkitRequestFileSystem;

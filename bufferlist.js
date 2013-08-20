@@ -1,12 +1,3 @@
-/*function concatArrays(arrays, cb) {
-    var blob = new Blob(arrays);
-    var reader = new FileReader();
-    reader.onload = function() {
-	cb(new Uint8Array(reader.result));
-    };
-    reader.readAsArrayBuffer(blob);
-}*/
-
 function BufferList(init) {
     this.offset = 0;  // into buffers
     this.length = 0;  // excl. offset
@@ -93,6 +84,13 @@ BufferList.prototype = {
     },
     toBlob: function() {
 	return new Blob(this.getBuffers());
+    },
+    readAsArrayBuffer: function(cb) {
+	var reader = new FileReader();
+	reader.onload = function() {
+	    cb(reader.result);
+	};
+	reader.readAsArrayBuffer(this.toBlob());
     },
     getByte: function(offset) {
 	offset += this.offset;
