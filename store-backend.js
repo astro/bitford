@@ -58,19 +58,16 @@ StoreBackend.prototype = {
 	}
     },
 
-    readUpTo: function(offset, maxLength, cb) {
+    readFrom: function(offset, cb) {
 	this.transaction("readonly", function(objectStore) {
 	    var req = objectStore.get(offset);
 	    req.onsuccess = function(event) {
 		var data = req.result;
-		if (data)
-		    cb(req.result.slice(0, maxLength));
-		else if (offset > 0) {
-		    this.readUpTo(offset - 1, maxLength + 1, function(data) {
-			cb(data.slice(1));
-		    });
+		console.log("readFrom", offset, data);
+		if (data) {
+		    cb(req.result);
 		} else {
-		    console.error("store readUpTo offset too low", offset);
+		    console.error("store readFrom offset too low", offset);
 		    cb();
 		}
 	    }.bind(this);
@@ -85,10 +82,13 @@ StoreBackend.prototype = {
 	var result = new BufferList();
 
 	var readFrom = function(offset, remain) {
-	    if (remain < 1)
+	    if (remain < 1) {
+		if (remain < 0)
+		    result.take(-result);
 		return cb(result);
+	    }
 
-	    this.readUpTo(offset, remain, function(data) {
+	    this.readFrom(offset, function(data) {
 		var len = data ? data.byteLength : 0;
 		if (len > 0) {
 		    result.append(data);

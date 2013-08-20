@@ -133,7 +133,12 @@ Store.prototype = {
 	    }
 	    if (found) {
 		piece.addOnValid(function() {
-		    this.backend.readUpTo(i * this.pieceLength + chunk.offset, chunk.length, function(data) {
+		    var chunkOffset = i * this.pieceLength + chunk.offset;
+		    this.backend.readFrom(chunkOffset, function(data) {
+			if (data.byteLength > chunk.length)
+			    data = data.slice(0, chunk.length);
+			if (chunkOffset < offset)
+			    data = data.slice(offset - chunkOffset);
 			cb(data);
 		    });
 		}.bind(this));
