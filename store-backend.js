@@ -7,8 +7,14 @@ window.IDBKeyRange = window.IDBKeyRange || window.webkitIDBKeyRange || window.ms
  * alleviate lack of sparse files.
  */
 function StoreBackend(basename, existingCb) {
-    var dbName = "bitford." + basename;
-    var req = indexedDB.open(dbName, 1);
+    this.key = function(offset) {
+	offset = offset.toString(16);
+	while(offset.length < 16)
+	    offset = "0" + offset;
+	return basename + "." + offset;
+    };
+
+    var req = indexedDB.open("bitford-store", 1);
     req.onerror = function() {
 	console.error("indexedDB", arguments);
     };
@@ -30,7 +36,22 @@ function StoreBackend(basename, existingCb) {
     }.bind(this);
 
     this.remove = function() {
-	indexedDB.deleteDatabase(dbName);
+	this.transaction("readwrite", function(objectStore) {
+	    var req = objectStore.openCursor(
+		IDBKeyRange.lowerBound(this.key(0)),
+		'next'
+	    );
+	    req.onsuccess = function(event) {
+		var cursor = event.target.result;
+		if (cursor && cursor.key.indexOf(basename + ".") === 0) {
+		    objectStore.delete(cursor.key);
+		    cursor.continue();
+		}
+	    };
+	    req.onerror = function(e) {
+		console.error("cursor", e);
+	    };
+	}.bind(this));
     };
 }
 
@@ -60,10 +81,9 @@ StoreBackend.prototype = {
 
     readFrom: function(offset, cb) {
 	this.transaction("readonly", function(objectStore) {
-	    var req = objectStore.get(offset);
+	    var req = objectStore.get(this.key(offset));
 	    req.onsuccess = function(event) {
 		var data = req.result;
-		console.log("readFrom", offset, data);
 		if (data) {
 		    cb(req.result);
 		} else {
@@ -75,7 +95,7 @@ StoreBackend.prototype = {
 		console.error("store read", offset, e);
 		cb();
 	    };
-	});
+	}.bind(this));
     },
 
     read: function(offset, length, cb) {
@@ -105,8 +125,8 @@ StoreBackend.prototype = {
     write: function(offset, data, cb) {
 	data.readAsArrayBuffer(function(buf) {
 	    this.transaction("readwrite", function(objectStore) {
-		objectStore.put(buf, offset);
-	    }, cb);
+		objectStore.put(buf, this.key(offset));
+	    }.bind(this), cb);
 	}.bind(this));
     }
 };
