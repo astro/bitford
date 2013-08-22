@@ -401,10 +401,12 @@ Peer.prototype = {
 			msg.setUint32(1, chunk.piece);
 			msg.setUint32(5, chunk.offset);
 			/* Copy data :( */
+			/* FIXME: optimize */
 			for(var i = 0; i < data.length; i++)
 			    msg.setInt8(9 + i, data.getByte(i));
 			this.sendMessage(msg);
 			this.torrent.upRate.add(data.length);
+			this.torrent.bytesUploaded += data.length;
 		    }.bind(this));
 		}
 	    }

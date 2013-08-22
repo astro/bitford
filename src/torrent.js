@@ -42,6 +42,10 @@ function Torrent(meta) {
     this.store.onPieceMissing = this.onPieceMissing.bind(this);
     this.store.onPieceValid = this.onPieceValid.bind(this);
 
+    this.bytesLeft = this.store.getBytesLeft();
+    this.bytesDownloaded = 0;
+    this.bytesUploaded = 0;
+
     /* Init trackers */
     if (meta['announce-list'])
 	this.trackers = meta['announce-list'].map(function(urls) {
@@ -99,6 +103,7 @@ Torrent.prototype = {
 
     recvData: function(piece, offset, data, cb) {
 	this.downRate.add(data.length);
+	this.bytesDownloaded += data.length;
 	this.store.write(piece, offset, data, cb);
     },
 
@@ -115,5 +120,6 @@ Torrent.prototype = {
 	    if (peer.state === 'connected')
 		peer.sendHave(pieceNumber);
 	});
+	this.bytesLeft = this.store.getBytesLeft();
     }
 };

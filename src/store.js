@@ -121,6 +121,21 @@ Store.prototype = {
 	return Math.floor(100 * done / this.pieces.length);
     },
 
+    getBytesLeft: function() {
+	var result = 0;
+	for(var i = 0; i < this.pieces.length; i++) {
+	    if (!this.pieces[i].valid) {
+		if (i < this.pieces.length - 1)
+		    result += this.pieceLength;
+		else
+		    this.pieces[i].chunks.forEach(function(chunk) {
+			result += chunk.length;
+		    });
+	    }
+	}
+	return result;
+    },
+
     consumeFile: function(path, offset, cb) {
 	for(var i = 0; i < this.pieces.length; i++) {
 	    var piece = this.pieces[i];

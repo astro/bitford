@@ -19,7 +19,7 @@ BitTorrent protocol 100% in JavaScript.
 * Transition to seeder
 * Priorities & unchoke buckets
 * Server ports bind retrying
-* Tracker stats
+* Tracker events
 * Session restore + clean-up unused files
 
 ## Unsolved

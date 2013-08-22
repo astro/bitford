@@ -54,7 +54,6 @@ TrackerGroup.prototype = {
 
 function Tracker(torrent, url) {
     this.url = url;
-console.log("Tracker.url=", url);
     this.torrent = torrent;
     this.started = true;
 }
@@ -74,9 +73,9 @@ Tracker.prototype = {
 	    peer_id: this.torrent.peerId,
 	    ip: "127.0.0.1",
 	    port: 6881,
-	    uploaded: 0,
-	    downloaded: 0,
-	    left: 100,
+	    uploaded: this.torrent.bytesUploaded,
+	    downloaded: this.torrent.bytesDownloaded,
+	    left: this.torrent.bytesLeft,
 	    compact: 1
 	};
         if (this.started) {
@@ -114,7 +113,8 @@ Tracker.prototype = {
 
     requestUDP: function(address, port, cb) {
 	var infoHash = this.torrent.infoHash,
-	    peerId = this.torrent.peerId;
+	    peerId = this.torrent.peerId,
+	    torrent = this.torrent;
 
 	connectUDP(address, port, function(err, sock) {
 	    var tries = 0;
@@ -167,9 +167,9 @@ Tracker.prototype = {
 		    0, 0, 0, 0,  /* transaction_id, see below */
 		    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  /* info_hash */
 		    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  /* peer_id */
-		    0, 0, 0, 0, 0, 0, 0, 0,  /* TODO: downloaded */
-		    0, 0, 0, 0, 0, 0, 0, 0,  /* TODO: left */
-		    0, 0, 0, 0, 0, 0, 0, 0,  /* TODO: uploaded */
+		    0, 0, 0, 0, 0, 0, 0, 0,  /* downloaded */
+		    0, 0, 0, 0, 0, 0, 0, 0,  /* left */
+		    0, 0, 0, 0, 0, 0, 0, 0,  /* uploaded */
 		    0, 0, 0, 2,  /* TODO: event */
 		    0, 0, 0, 0,  /* ip */
 		    0, 0, 0, 0,  /* TODO: key */
@@ -188,6 +188,12 @@ Tracker.prototype = {
 		for(i = 0; i < 20; i++) {
 		    d.setInt8(36 + i, peerId[i]);
 		}
+		d.setUint32(56, torrent.bytesDownloaded >> 32);
+		d.setUint32(60, torrent.bytesDownloaded & 0xffffffff);
+		d.setUint32(64, torrent.bytesLeft >> 32);
+		d.setUint32(68, torrent.bytesLeft & 0xffffffff);
+		d.setUint32(72, torrent.bytesUploaded >> 32);
+		d.setUint32(76, torrent.bytesUploaded & 0xffffffff);
 		send(announceReq, function(announceRes) {
 		    var d = new DataView(announceRes);
 		    if (d.byteLength >= 20 &&
