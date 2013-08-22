@@ -1,4 +1,4 @@
-importScripts("digest.js");
+importScripts("../lib/digest.js");
 
 var sha1s = {};
 

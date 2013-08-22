@@ -411,7 +411,7 @@ StorePiece.prototype = {
 };
 
 function SHA1Worker() {
-    this.worker = new Worker("sha1-worker.js");
+    this.worker = new Worker("src/sha1-worker.js");
     this.queue = [];
     this.worker.onmessage = function(ev) {
 	var cb = this.queue.shift();

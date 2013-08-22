@@ -1,5 +1,5 @@
 chrome.app.runtime.onLaunched.addListener(function(launchData) {
-    chrome.app.window.create('main.html', {
+    chrome.app.window.create('../ui/main.html', {
     	id: 'bitford_main'
     }, function(win) {
     });
