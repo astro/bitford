@@ -64,6 +64,7 @@ Peer.prototype = {
 	}.bind(this);
 	sock.onData = this.onData.bind(this);
 	sock.onDrain = this.onDrain.bind(this);
+	sock.readLength = 20 + 8 + 20 + 20;  // Expect handshake
 	sock.resume();
     },
 
@@ -200,9 +201,17 @@ Peer.prototype = {
 		}
 		this.buffer.take(this.messageSize);
 		this.messageSize = null;
-	    } else
+	    } else {
 		done = true;
+	    }
 	} while(!done);
+
+	if (this.state === 'connected' && !this.messageSize) {
+	    this.sock.readLength = 4 - this.buffer.length;
+	} else if (this.state === 'connected' && this.messageSize) {
+	    this.sock.readLength = this.messageSize - this.buffer.length;
+	} else
+	    this.sock.readLength = undefined;
     },
 
     handleMessage: function(data) {

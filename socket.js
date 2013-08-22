@@ -45,8 +45,9 @@ BaseSocket.prototype = {
 	if (this.paused || this.readPending)
 	    return;
 	this.readPending = true;
-	Socket.read(this.sockId, function(readInfo) {
+	Socket.read(this.sockId, this.readLength, function(readInfo) {
 	    this.readPending = false;
+	    this.readLength = undefined;
 	    if (readInfo.resultCode < 0)
 		return this.end();
 	    if (readInfo.data && this.onData) {

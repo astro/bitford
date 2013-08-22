@@ -82,15 +82,17 @@ BufferList.prototype = {
 	    return buf;
 	}
     },
-    toBlob: function() {
-	return new Blob(this.getBuffers());
-    },
     readAsArrayBuffer: function(cb) {
-	var reader = new FileReader();
-	reader.onload = function() {
-	    cb(reader.result);
-	};
-	reader.readAsArrayBuffer(this.toBlob());
+	var bufs = this.getBuffers();
+	if (bufs.length == 1) {
+	    cb(bufs[0]);
+	} else {
+	    var reader = new FileReader();
+	    reader.onload = function() {
+		cb(reader.result);
+	    };
+	    reader.readAsArrayBuffer(new Blob(bufs));
+	}
     },
     getByte: function(offset) {
 	offset += this.offset;
