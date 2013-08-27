@@ -6,6 +6,7 @@ function TrackerGroup(torrent, urls) {
 }
 TrackerGroup.prototype = {
     start: function() {
+	this.nextReq = 'now';
 	this.trackers[0].request(function(error, response) {
 	    /* Rotate in group */
 	    this.trackers.push(this.trackers.shift());
@@ -39,6 +40,7 @@ TrackerGroup.prototype = {
 	    }
 
 	    var interval = (response.interval || 30 + 30 * Math.random()) * 1000;
+	    this.nextReq = Date.now() + interval;
 	    this.timeout = setTimeout(this.start.bind(this), Math.ceil(interval));
 	}.bind(this));
     },
@@ -46,6 +48,7 @@ TrackerGroup.prototype = {
     stop: function() {
 	// TODO: do event req
 	if (this.timeout) {
+	    this.nextReq = null;
 	    clearTimeout(this.timeout);
 	    this.timeout = null;
 	}
@@ -68,6 +71,20 @@ Tracker.prototype = {
     },
 
     requestHTTP: function(cb) {
+	var onResponse = function(error, result) {
+	    this.error = null;
+
+	    if (result) {
+		// TODO: min interval & tracker id
+		this.error = result['failure reason'] || result['warning message'];
+		this.complete = result.complete;
+		this.incomplete = result.incomplete;
+	    } else {
+		this.error = error && error.message || "Error";
+	    }
+	    cb(error, result);
+	}.bind(this);
+
         var query = {
 	    info_hash: this.torrent.infoHash,
 	    peer_id: this.torrent.peerId,

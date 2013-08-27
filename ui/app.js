@@ -37,6 +37,11 @@ app.directive('piecesCanvas', function() {
 	restrict: 'A',
 	link: function($scope, element, attrs) {
 	    function draw() {
+		if (attrs['piecesCanvas'] && !$scope.$eval(attrs['piecesCanvas'])) {
+		    setTimeout(draw, 100);
+		    return;
+		}
+
 		var t1 = Date.now();
 
 		var pieces = $scope.torrent.store.pieces;
@@ -98,6 +103,11 @@ app.directive('piecesCanvas', function() {
 });
 
 app.controller('TorrentsController', function($scope) {
+    $scope.selected = undefined;
+    $scope.selectTorrent = function(torrent) {
+	console.log("selected", torrent);
+	$scope.selected = torrent;
+    };
     chrome.runtime.getBackgroundPage(function(background) {
 	$scope.torrents = background.torrents;
     });
@@ -114,12 +124,18 @@ var MediaSource_ = window.MediaSource ||
     window.WebKitMediaSource;
 
 app.controller('TorrentController', function($scope) {
+    $scope.tab = 'files';
     $scope.round = Math.round;
     $scope.humanSize = humanSize;
     $scope.peerIdToClient = peerIdToClient;
-    $scope.show = true;
-    $scope.toggleShow = function() {
-	$scope.show = !$scope.show;
+    $scope.formatInterval = function(time) {
+	if (typeof time === 'number') {
+	    return formatSeconds((time - Date.now()) / 1000);
+	} else if (time === 'now') {
+	    return "now";
+	} else {
+	    return "";
+	}
     };
 
     function tick() {
@@ -224,6 +240,33 @@ function humanSize(size) {
         return Math.round(size) + " " + units[0];
     }
 }
+
+var MINUTE = 60;
+var HOUR = 60 * MINUTE;
+var DAY = 24 * HOUR;
+var MONTH = 30 * DAY;
+var YEAR = 365 * DAY;
+function formatSeconds(secs) {
+    var frags = [];
+    function addFrag(n, s) {
+	if (n !== 0 || frags.length > 0)
+	    frags.push(n + " " + s + (n === 1 ? "" : "s"));
+    }
+    addFrag(Math.floor(secs / YEAR), "year");
+    secs %= YEAR;
+    addFrag(Math.floor(secs / MONTH), "month");
+    secs %= MONTH;
+    addFrag(Math.floor(secs / DAY), "day");
+    secs %= DAY;
+    addFrag(Math.floor(secs / HOUR), "hour");
+    secs %= HOUR;
+    addFrag(Math.floor(secs / MINUTE), "minute");
+    secs %= MINUTE;
+    addFrag(Math.floor(secs), "second");
+
+    return frags.slice(0, 2).join(", ");
+}
+
 
 var PEER_ID_CLIENTS = {
     'AB': "AnyEvent::BitTorrent",

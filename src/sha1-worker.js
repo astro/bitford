@@ -12,9 +12,13 @@ var onmessage = function(ev) {
 	sha1s[update.index].update(update.data);
 	// for back-pressure
 	postMessage({ });
-    } else if (finalize) {
+    } else if (finalize && sha1s.hasOwnProperty(finalize.index)) {
 	var hash = sha1s[finalize.index].finalize();
 	delete sha1s[finalize.index];
+	postMessage({ hash: hash }, [hash]);
+    } else if (finalize) {
+	console.error("sha1-worker: finalizing non-existing", finalize.index);
+	var hash = new Uint8Array(20);  // dummy
 	postMessage({ hash: hash }, [hash]);
     }
 };

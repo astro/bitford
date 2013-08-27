@@ -47,6 +47,34 @@ h1 {
     margin: 2px 4px 2px 0;
 }
 
+.torrent .tabs {
+    margin: 0.5em 0 -1px 1em;
+    padding: 0;
+    z-index: 1;
+}
+.torrent .tabs li {
+    list-style-type: none;
+    display: inline-block;
+    background-color: white;
+    border: 1px solid #333;
+    border-radius: 2px 2px 0 0;
+    padding: 2px 4px;
+}
+.torrent .tabs li:hover {
+    background-color: #77f;
+}
+.torrent .tabs li.active {
+    border-bottom: 1px solid white;
+}
+.torrent .content {
+    border: 1px solid #333;
+    border-radius: 2px;
+    min-height: 16em;
+    overflow-y: auto;
+    margin: 0;
+    padding: 0.5em 1em;
+}
+
 .torrent .files {
     list-style-type: none;
     margin: 0.5em;
@@ -65,7 +93,7 @@ h1 {
 .pieces-container .pieces-scroll {
     max-width: 100%;
     overflow-x: auto;
-    margin: 0.5em 1em 0 0;
+    margin: 0.5em 0 0 0;
 }
 .pieces-container canvas.pieces {
     display: inline-block;
@@ -88,8 +116,9 @@ h1 {
     margin: 0 0.1em 0 0.7em;
 }
 .torrent .peers {
-    font-size: 80%;
     border-spacing: 0;
+    margin: 0 auto;
+    width: 90%;
 }
 .torrent .peers thead tr {
     background-color: #333;
