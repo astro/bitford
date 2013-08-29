@@ -128,7 +128,7 @@ TCPSocket.prototype.write = function(data) {
 
 	Socket.write(this.sockId, data, function(writeInfo) {
 	    if (writeInfo.bytesWritten < 0) {
-		console.error("Write to socket", this.sockId, ":", writeInfo.bytesWritten);
+		console.warn("Write to socket", this.sockId, ":", writeInfo.bytesWritten);
 		return this.end();
 	    }
 	    this.writesPending--;
@@ -158,7 +158,7 @@ function connectUDP(host, port, cb) {
 	    try {
 		cb(err, err ? null : sock);
 	    } catch (e) {
-		console.error(e.stack || e.message || e);
+		console.warn(e.stack || e.message || e);
 	    }
 	});
     });
@@ -182,7 +182,7 @@ UDPSocket.prototype.write = function(data) {
 
 	Socket.write(this.sockId, data, function(writeInfo) {
 	    if (writeInfo.bytesWritten < 0) {
-		console.error("Write to socket", this.sockId, ":", writeInfo.bytesWritten);
+		console.warn("Write to socket", this.sockId, ":", writeInfo.bytesWritten);
 		return this.end();
 	    }
 	}.bind(this));
