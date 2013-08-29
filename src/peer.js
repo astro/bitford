@@ -210,12 +210,14 @@ Peer.prototype = {
 	    }
 	} while(!done);
 
-	if (this.state === 'connected' && !this.messageSize) {
-	    this.sock.readLength = 4 - this.buffer.length;
-	} else if (this.state === 'connected' && this.messageSize) {
-	    this.sock.readLength = this.messageSize - this.buffer.length;
-	} else
-	    this.sock.readLength = undefined;
+	if (this.sock) {
+	    if (this.state === 'connected' && !this.messageSize) {
+		this.sock.readLength = 4 - this.buffer.length;
+	    } else if (this.state === 'connected' && this.messageSize) {
+		this.sock.readLength = this.messageSize - this.buffer.length;
+	    } else
+		this.sock.readLength = undefined;
+	}
     },
 
     handleMessage: function(data) {
