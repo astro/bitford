@@ -105,10 +105,8 @@ Store.prototype = {
 	    var chunk =
 		peer.has(piece.pieceNumber) &&
 		piece.nextToDownload(peer);
-	    if (chunk) {
-		chunk.piece = piece.pieceNumber;
+	    if (chunk)
 		return chunk;
-	    }
 	}
 
 	return null;
@@ -254,6 +252,7 @@ StorePiece.prototype = {
 		chunk.peer = peer;
 		if (!result)
 		    result = {
+			piece: this.pieceNumber,
 			offset: chunk.offset,
 			length: 0
 		    };
