@@ -319,13 +319,6 @@ Peer.prototype = {
 
 	    /* Write & resume */
 	    this.torrent.recvData(piece, offset, data, onProcessed);
-	    /* Cancel in all other peers */
-	    this.torrent.peers.forEach(function(peer) {
-		if (peer !== this) {
-		    if (peer.removeRequestedChunk(piece, offset, data.length) != null)
-			console.log("removed chunk from", peer, "that", this, "downloaded");
-		}
-	    }.bind(this));
 	} else {
 	    console.warn("Received unexpected piece", piece, offset, data.length);
 	    onProcessed();
