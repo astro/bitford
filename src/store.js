@@ -212,7 +212,7 @@ Store.prototype = {
     }
 };
 
-var CHUNK_LENGTH = Math.pow(2, 15);
+var CHUNK_LENGTH = Math.pow(2, 14);  /* 16 KB */
 
 function StorePiece(store, pieceNumber, chunks, expectedHash) {
     this.store = store;
