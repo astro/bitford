@@ -396,7 +396,8 @@ Peer.prototype = {
 		var piece = this.torrent.store.pieces[chunk.piece];
 		if (piece && piece.valid) {
 		    piece.read(chunk.offset, chunk.length, function(data) {
-			var msg = new Message(9 + data.length);
+			data = new Uint8Array(data);
+			var msg = new Message(9 + data.byteLength);
 			msg.setInt8(0, 7);  /* Piece */
 			msg.setUint32(1, chunk.piece);
 			msg.setUint32(5, chunk.offset);
