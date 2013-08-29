@@ -95,7 +95,7 @@ app.directive('piecesCanvas', function() {
 
 		var t2 = Date.now();
 		/* Allow max. 10% CPU time */
-		setTimeout(draw, Math.ceil(Math.max(5, t2 - t1) / .10));
+		setTimeout(draw, Math.ceil(Math.max(300, t2 - t1) / .10));
 	    }
 	    draw();
         }
