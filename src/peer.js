@@ -28,7 +28,7 @@ function Peer(torrent, info) {
     this.direction = 'outgoing';
     this.buffer = new BufferList();
     this.requestedChunks = [];
-    this.inflightThreshold = 4;
+    this.inflightThreshold = 2;
     this.inPiecesProcessing = 0;
     this.upRate = new RateEstimator();
     this.downRate = new RateEstimator();
@@ -42,6 +42,8 @@ function Peer(torrent, info) {
 }
 
 Peer.prototype = {
+    maxProcessingThreshold: 2,
+
     end: function() {
 	if (this.sock)
 	    this.sock.end();
@@ -89,8 +91,10 @@ Peer.prototype = {
 	    amount: buffer.byteLength,
 	    prio: prio,
 	    cb: function() {
-		if (this.direction === "incoming")
-		    console.log("sendMessage", new Uint8Array(msg.buffer));
+		if (!this.sock)
+		    return;
+
+		// console.log(this.ip, "send", new Uint8Array(buffer));
 		this.sock.write(buffer);
 		this.upRate.add(buffer.byteLength);
 	    }.bind(this)
@@ -139,7 +143,7 @@ Peer.prototype = {
 	    amount: data.byteLength,
 	    cb: function() {
 		this.downShaped = false;
-		if (this.sock && this.inPiecesProcessing < 1)
+		if (this.sock && this.inPiecesProcessing < this.maxProcessingThreshold)
 		    this.sock.resume();
 	    }.bind(this)
 	});
@@ -291,7 +295,7 @@ Peer.prototype = {
 	this.inPiecesProcessing++;
 	var onProcessed = function() {
 	    this.inPiecesProcessing--;
-	    if (this.sock && !this.downShaped && this.inPiecesProcessing < 1)
+	    if (this.sock && !this.downShaped && this.inPiecesProcessing < this.maxProcessingThreshold)
 		this.sock.resume();
 	}.bind(this);
 
@@ -358,6 +362,7 @@ Peer.prototype = {
 	}
 	this.interesting = interesting;
 	// TODO: We'll need to send not interested as our pieces complete
+	this.canRequest();
     },
 
     discardRequestedChunks: function() {
@@ -418,8 +423,11 @@ Peer.prototype = {
 	if (this.choked || !this.sock || !this.sock.drained)
 	    return;
 
-	/* Recalc inflightThreshold according to a BDP with 500ms */
-	this.inflightThreshold = Math.max(4,
+	/* Recalc inflightThreshold according to a target delay of
+	   500ms, which is really a lot. Yet we need that
+	   inflightThreshold reasonably high.
+	 */
+	this.inflightThreshold = Math.max(2,
 	    Math.ceil(this.downRate.getRate() * 0.5 / CHUNK_LENGTH));
 
 	while(this.requestedChunks.length < this.inflightThreshold) {
@@ -471,6 +479,10 @@ Peer.prototype = {
 	    chunk.timeout = null;
 	    /* Let so. else try it */
 	    chunk.cancel();
+	    setTimeout(function() {
+		this.removeRequestedChunk(piece, offset, length);
+		this.sendCancel(piece, offset, length);
+	    }.bind(this), delay);
 	}.bind(this), 5 * this.inflightThreshold * delay);
 	this.requestedChunks.push(chunk);
     },
