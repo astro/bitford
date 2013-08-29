@@ -87,6 +87,8 @@ StoreBackend.prototype = {
 		if (data) {
 		    cb(req.result);
 		} else {
+		    /* TODO: reads for pieces are not neccessarily
+		     * aligned with our CHUNK_LENGTH */
 		    console.error("store readFrom offset too low", offset);
 		    cb();
 		}

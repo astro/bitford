@@ -16,11 +16,8 @@ BitTorrent protocol 100% in JavaScript.
 
 ## Roadmap
 
-* Test w/ uTorrent & Transmission
-* Test req timeouts
-
+* Show ETA
 * Server ports bind retrying
-* Chunks: keep list of requested peers to cancel all only upon reception
 * Transition to seeder
 * Tracker events
 * Priorities & unchoke buckets
