@@ -81,12 +81,14 @@ Store.prototype = {
 
     // TODO: could return up to a number chunks (optimization)
     nextToDownload: function(peer) {
+	/* amount of pieces in 1 mb */
+	var readahead_start = 1024 * 1024 * 1024 / this.pieceLength;
 	var readahead = 0;
 	var eligiblePieces = this.pieces.filter(function(piece) {
 	    if (piece.valid)
 		return false;
 	    if (piece.onValidCbs.length > 0) {
-		readahead = 3;
+		readahead = readahead_start;
 		return true;
 	    } else if (readahead > 0) {
 		readahead--;
