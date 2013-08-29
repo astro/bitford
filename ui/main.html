@@ -116,12 +116,30 @@
 		  <td>{{peerIdToClient(peer.peerId)}}</td>
 		  <td ng-switch="peer.state">
 		    <span ng-switch-when="connected">
-		      <span ng-show="peer.choked" style="color: red">C</span>
-		      <span ng-hide="peer.choked" style="color: green">U</span>
-		      <span ng-show="peer.interested" style="color: blue">I</span>
-		      <span ng-hide="peer.interested" style="color: #ccc">N</span>
-		      <span ng-show="peer.interesting" style="color: blue">I!</span>
-		      <span ng-hide="peer.interesting" style="color: #ccc">N!</span>
+		      <span ng-show="peer.choked"
+			    style="color: red"
+			    title="We are choked">C</span>
+		      <span ng-hide="peer.choked"
+			    style="color: green"
+			    title="We are unchoked">U</span>
+		      <span ng-show="peer.interested"
+			    style="color: blue"
+			    title="Peer is interested in our data">I</span>
+		      <span ng-hide="peer.interested"
+			    style="color: #ccc"
+			    title="Peer is not interested in our data">N</span>
+		      <span ng-show="peer.interesting"
+			    style="color: blue"
+			    title="We are interested in their data">I!</span>
+		      <span ng-hide="peer.interesting"
+			    style="color: #ccc"
+			    title="We are bot interested in their data">N!</span>
+		      <span ng-show="peer.sock.paused"
+			    style="color: #333"
+			    title="Throttling download">P</span>
+		      <span ng-hide="peer.sock.paused"
+			    style="color: green"
+			    title="Receiving">R</span>
 		    </span>
 		    <span ng-switch-default>
 		      {{peer.state}}<span ng-show="peer.error">: {{peer.error}}</span>
