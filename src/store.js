@@ -410,8 +410,12 @@ StorePiece.prototype = {
 	    var onValidCbs = this.onValidCbs;
 	    this.onValidCbs = [];
 	    onValidCbs.forEach(function(cb) {
-		cb();
-	    });
+		try {
+		    cb();
+		} catch (e) {
+		    console.error("onValidCb", this.pieceNumber, e);
+		}
+	    }.bind(this));
 	}
     },
 
