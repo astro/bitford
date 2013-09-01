@@ -89,7 +89,7 @@ Tracker.prototype = {
 	    info_hash: this.torrent.infoHash,
 	    peer_id: this.torrent.peerId,
 	    ip: "127.0.0.1",
-	    port: 6881,
+	    port: peerPort,
 	    uploaded: this.torrent.bytesUploaded,
 	    downloaded: this.torrent.bytesDownloaded,
 	    left: this.torrent.bytesLeft,

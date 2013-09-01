@@ -42,8 +42,10 @@ function rmTorrent(torrent) {
     console.log("removed");
 }
 
+var peerPort;
+
 /* Peer listener */
-createTCPServer("::", 6881, function(sock) {
+tryCreateTCPServer(6881, function(sock) {
     console.log("new peer server sock", sock);
     servePeer(sock, function(peer) {
 	for(var i = 0; i < torrents.length; i++) {
@@ -58,4 +60,7 @@ createTCPServer("::", 6881, function(sock) {
 	    throw "Peer for unknown torrent";
 	}
     });
+}, function(err, port) {
+    if (port)
+	peerPort = port;
 });

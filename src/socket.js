@@ -66,13 +66,7 @@ BaseSocket.prototype = {
 };
 
 /* Creates paused sockets */
-function createTCPServer(host, port, cb) {
-    if (!cb) {
-	// Shift args
-	cb = port;
-	port = host;
-	host = "::";
-    }
+function createTCPServer(host, port, acceptCb, listenCb) {
     var backlog = 1;
 
     Socket.create('tcp', {}, function(createInfo) {
@@ -83,17 +77,42 @@ function createTCPServer(host, port, cb) {
 		    var sockId = acceptInfo.socketId;
 		    if (sockId) {
 			var sock = new TCPSocket(sockId);
-			cb(sock);
+			acceptCb(sock);
 		    }
 		    loop();
 		});
 	    }
-	    if (res >= 0)
+	    if (res >= 0) {
+		if (listenCb)
+		    listenCb();
 		loop();
-	    else
+	    } else {
 		console.error("Cannot listen on", host, ":", port, ":", res);
+		if (listenCb)
+		    listenCb(new Error("Listen: " + res));
+	    }
 	});
     });
+}
+
+function tryCreateTCPServer(port, acceptCb, listenCb) {
+    var attempt = 0;
+    function doTry() {
+	attempt++;
+	createTCPServer("::", port, acceptCb, function(err) {
+	    if (err) {
+		if (attempt < 100) {
+		    port += 1 + Math.floor(7 * Math.random());
+		    doTry();
+		} else {
+		    listenCb(err);
+		}
+	    } else {
+		listenCb(null, port);
+	    }
+	});
+    }
+    doTry();
 }
 
 /* Creates paused sockets */

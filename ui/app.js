@@ -161,7 +161,8 @@ app.controller('TorrentController', function($scope) {
 	}
 
 	var mimeType = getMimeType(path);
-	var url = "http://localhost:8080/" + path.join("/");
+	console.log("app httpStreamPort", httpStreamPort);
+	var url = "http://localhost:" + httpStreamPort + "/" + path.join("/");
 	if (/^video\//.test(mimeType))
 	    $scope.videoURL = url;
 	else if (/^audio\//.test(mimeType))

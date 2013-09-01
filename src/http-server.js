@@ -1,8 +1,8 @@
-function createHTTPServer(port, cb) {
-    createTCPServer("::", 8080, function(sock) {
+function createHTTPServer(cb, listenCb) {
+    tryCreateTCPServer(8000, function(sock) {
 	console.log("new http server sock", sock);
 	new HTTPServer(sock, cb);
-    });
+    }, listenCb);
 }
 
 function HTTPServer(sock, cb) {
