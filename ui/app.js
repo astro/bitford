@@ -160,13 +160,17 @@ app.controller('TorrentController', function($scope) {
 	    return;
 	}
 
-	var mimeType = getMimeType(path);
-	console.log("app httpStreamPort", httpStreamPort);
-	var url = "http://localhost:" + httpStreamPort + "/" + path.join("/");
-	if (/^video\//.test(mimeType))
-	    $scope.videoURL = url;
-	else if (/^audio\//.test(mimeType))
-	    $scope.audioURL = url;
+	chrome.runtime.getBackgroundPage(function(background) {
+	    var httpStreamPort = background.httpStreamPort;
+	    var mimeType = getMimeType(path);
+	    console.log("app httpStreamPort", httpStreamPort);
+	    var url = "http://localhost:" + httpStreamPort + "/" + path.join("/");
+	    if (/^video\//.test(mimeType))
+		$scope.videoURL = url;
+	    else if (/^audio\//.test(mimeType))
+		$scope.audioURL = url;
+	    $scope.$digest();
+	});
     };
     $scope.saveButton = function(path) {
 	var size = $scope.torrent.files.filter(function(file) {
