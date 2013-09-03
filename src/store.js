@@ -38,7 +38,10 @@ function Store(torrent, pieceHashes, pieceLength) {
 	this.pieces.push(new StorePiece(this, this.pieces.length, chunks, pieceHashes[this.pieces.length]));
     }
     this.fileEntries = {};
-    this.interestingPiecesThreshold = Math.max(2, Math.ceil(4 * 1024 * 1024 / pieceLength));
+    /* Lower bound for interestingPieces */
+    this.interestingPiecesThreshold = Math.max(2, Math.ceil(2 * 1024 * 1024 / pieceLength));
+    /* Upper bound for interestingPieces */
+    this.piecesReadahead = 2 * this.interestingPiecesThreshold;
     this.interestingPieces = [];
 
     this.sha1Worker = new SHA1Worker();
@@ -75,9 +78,9 @@ Store.prototype = {
     },
 
     isInterestedIn: function(peer) {
-	for(var i = 0; i < this.interestingPieces.length; i++) {
-	    var piece = this.interestingPieces[i];
-	    if (piece.state !== 'valid' && peer.has(i))
+	for(var i = 0; i < this.pieces.length; i++) {
+	    var piece = this.pieces[i];
+	    if (!piece.valid && peer.has(i))
 		return true;
 	}
 	return false;
@@ -85,7 +88,7 @@ Store.prototype = {
 
     // TODO: could return up to a number chunks (optimization)
     nextToDownload: function(peer) {
-	this.fillInterestingPieces();
+	this.fillInterestingPieces(peer);
 
 	for(var i = 0; i < this.interestingPieces.length; i++) {
 	    var piece = this.interestingPieces[i];
@@ -96,11 +99,10 @@ Store.prototype = {
 		return chunk;
 	}
 
-	/* TODO: start stealing */
 	return null;
     },
 
-    fillInterestingPieces: function() {
+    fillInterestingPieces: function(hintPeer) {
 	if (this.interestingPieces.length >= this.interestingPiecesThreshold)
 	    /* Don't even start working unless neccessary */
 	    return;
@@ -110,7 +112,7 @@ Store.prototype = {
 	var i, piece;
 	for(i = 0; i < this.pieces.length; i++) {
 	    piece = this.pieces[i];
-	    if (piece.valid)
+	    if (piece.valid || (hintPeer && !hintPeer.has(i)))
 		continue;
 
 	    rarity[i] = 0;
@@ -127,7 +129,7 @@ Store.prototype = {
 	    else
 		return r2 - r1;
 	});
-	for(i = 0; this.interestingPieces.length < this.interestingPiecesThreshold && i < idxs.length; i++) {
+	for(i = 0; this.interestingPieces.length < this.piecesReadahead && i < idxs.length; i++) {
 	    var idx = idxs[i];
 	    piece = this.pieces[idx];
 	    var alreadyPresent = this.interestingPieces.some(function(presentPiece) {
@@ -177,9 +179,10 @@ Store.prototype = {
     },
 
     consumeFile: function(path, offset, cb) {
-	for(var i = 0; i < this.pieces.length; i++) {
+	var found = false;
+	for(var i = 0; !found && i < this.pieces.length; i++) {
 	    var piece = this.pieces[i];
-	    var found = false, length = 0;
+	    var length = 0;
 	    for(var j = 0; !found && j < piece.chunks.length; j++) {
 		var chunk = piece.chunks[j];
 		found = arrayEq(chunk.path, path) &&
@@ -197,8 +200,24 @@ Store.prototype = {
 			cb(data);
 		    });
 		}.bind(this));
-		break;
+
+		/* Interest for readahead */
+		var readahead = [];
+		for(var i2 = i; i2 < Math.min(i + this.piecesReadahead, this.pieces.length); i2++) {
+		    if (!this.pieces[i2].valid)
+			readahead.push(i2);
+		}
+		this.interestingPieces = readahead.map(function(idx) {
+		    return this.pieces[idx];
+		}.bind(this)).concat(this.interestingPieces.filter(function(piece) {
+		    return readahead.indexOf(piece.pieceNumber) === -1;
+		}));
 	    }
+	}
+
+	if (!found) {
+	    console.warn("consumeFile: not found", path, "+", offset);
+	    cb();
 	}
     },
 

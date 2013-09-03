@@ -55,7 +55,6 @@ function handleStreamRequest(req, res, path, size, torrent) {
     var bytes = start || 0;
     var looping = false;
     function loop() {
-	console.log("looping", looping);
         if (looping)
             return;
         looping = true;
@@ -70,7 +69,6 @@ function handleStreamRequest(req, res, path, size, torrent) {
             if (data.byteLength > 0) {
                 if (bytes + data.byteLength > end)
                     data = data.slice(0, end - bytes);
-		console.log("writing", data);
 		try {
                     res.write(data);
 		} catch(e) {
