@@ -182,7 +182,6 @@ Store.prototype = {
 	var found = false;
 	for(var i = 0; !found && i < this.pieces.length; i++) {
 	    var piece = this.pieces[i];
-	    var length = 0;
 	    for(var j = 0; !found && j < piece.chunks.length; j++) {
 		var chunk = piece.chunks[j];
 		found = arrayEq(chunk.path, path) &&
@@ -210,7 +209,7 @@ Store.prototype = {
 		this.interestingPieces = readahead.map(function(idx) {
 		    return this.pieces[idx];
 		}.bind(this)).concat(this.interestingPieces.filter(function(piece) {
-		    return readahead.indexOf(piece.pieceNumber) === -1;
+		    return readahead.indexOf("" + piece.pieceNumber) === -1;
 		}));
 	    }
 	}
