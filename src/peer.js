@@ -410,8 +410,8 @@ Peer.prototype = {
 			msg.setUint32(5, chunk.offset);
 			/* Copy data :( */
 			/* FIXME: optimize */
-			for(var i = 0; i < data.length; i++)
-			    msg.setInt8(9 + i, data.getByte(i));
+			for(var i = 0; i < data.byteLength; i++)
+			    msg.setInt8(9 + i, data[i]);
 			this.sendMessage(msg);
 			this.torrent.upRate.add(data.length);
 			this.torrent.bytesUploaded += data.length;
