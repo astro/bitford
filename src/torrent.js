@@ -38,9 +38,7 @@ function Torrent(meta) {
 	});
     else
 	throw "Invalid torrent: no files";
-    this.store = new Store(this.infoHash, this.files, pieces, pieceLength);
-    this.store.onPieceMissing = this.onPieceMissing.bind(this);
-    this.store.onPieceValid = this.onPieceValid.bind(this);
+    this.store = new Store(this, pieces, pieceLength);
 
     this.bytesLeft = this.store.getBytesLeft();
     this.bytesDownloaded = 0;

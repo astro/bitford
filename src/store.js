@@ -3,14 +3,16 @@ var requestFileSystem_ = window.requestFileSystem ||
 var PersistentStorage_ = navigator.PersistentStorage ||
     navigator.webkitPersistentStorage;
 
-function Store(infoHash, files, pieceHashes, pieceLength) {
+function Store(torrent, pieceHashes, pieceLength) {
+    this.torrent = torrent;
     this.size = 0;
+    var files = torrent.files;
     files.forEach(function(file) {
 	this.size += file.size;
     }.bind(this));
     this.pieceLength = pieceLength;
 
-    var infoHashHex = bufferToHex(infoHash);
+    var infoHashHex = bufferToHex(torrent.infoHash);
     this.backend = new StoreBackend(infoHashHex, this.onExisting.bind(this));
 
     this.pieces = [];
@@ -36,6 +38,8 @@ function Store(infoHash, files, pieceHashes, pieceLength) {
 	this.pieces.push(new StorePiece(this, this.pieces.length, chunks, pieceHashes[this.pieces.length]));
     }
     this.fileEntries = {};
+    this.interestingPiecesThreshold = Math.max(2, Math.ceil(4 * 1024 * 1024 / pieceLength));
+    this.interestingPieces = [];
 
     this.sha1Worker = new SHA1Worker();
 }
@@ -71,8 +75,8 @@ Store.prototype = {
     },
 
     isInterestedIn: function(peer) {
-	for(var i = 0; i < this.pieces.length; i++) {
-	    var piece = this.pieces[i];
+	for(var i = 0; i < this.interestingPieces.length; i++) {
+	    var piece = this.interestingPieces[i];
 	    if (piece.state !== 'valid' && peer.has(i))
 		return true;
 	}
@@ -81,27 +85,10 @@ Store.prototype = {
 
     // TODO: could return up to a number chunks (optimization)
     nextToDownload: function(peer) {
-	/* amount of pieces in 1 mb */
-	var readahead_start = 1024 * 1024 * 1024 / this.pieceLength;
-	var readahead = 0;
-	var eligiblePieces = this.pieces.filter(function(piece) {
-	    if (piece.valid)
-		return false;
-	    if (piece.onValidCbs.length > 0) {
-		readahead = readahead_start;
-		return true;
-	    } else if (readahead > 0) {
-		readahead--;
-		return true;
-	    } else
-		return false;
-	});
-	// console.log("eligiblePieces", eligiblePieces);
-	if (eligiblePieces.length == 0)
-	    eligiblePieces = this.pieces;
+	this.fillInterestingPieces();
 
-	for(var i = 0; i < eligiblePieces.length; i++) {
-	    var piece = eligiblePieces[i];
+	for(var i = 0; i < this.interestingPieces.length; i++) {
+	    var piece = this.interestingPieces[i];
 	    var chunk =
 		peer.has(piece.pieceNumber) &&
 		piece.nextToDownload(peer);
@@ -109,7 +96,60 @@ Store.prototype = {
 		return chunk;
 	}
 
+	/* TODO: start stealing */
 	return null;
+    },
+
+    fillInterestingPieces: function() {
+	if (this.interestingPieces.length >= this.interestingPiecesThreshold)
+	    /* Don't even start working unless neccessary */
+	    return;
+
+	/* Build rarity map */
+	var rarity = {};
+	var i, piece;
+	for(i = 0; i < this.pieces.length; i++) {
+	    piece = this.pieces[i];
+	    if (piece.valid)
+		continue;
+
+	    rarity[i] = 0;
+	    this.torrent.peers.forEach(function(peer) {
+		if (!peer.has(i))
+		    rarity[i]++;
+	    });
+	}
+	/* Select by highest rarity first, or randomly */
+	var idxs = Object.keys(rarity).sort(function(idx1, idx2) {
+	    var r1 = rarity[idx1], r2 = rarity[idx2];
+	    if (r1 === r2)
+		return Math.random() - 0.5;
+	    else
+		return r2 - r1;
+	});
+	for(i = 0; this.interestingPieces.length < this.interestingPiecesThreshold && i < idxs.length; i++) {
+	    var idx = idxs[i];
+	    piece = this.pieces[idx];
+	    var alreadyPresent = this.interestingPieces.some(function(presentPiece) {
+		return presentPiece.pieceNumber === idx;
+	    });
+	    if (!alreadyPresent) {
+		this.interestingPieces.push(piece);
+	    } else {
+		console.log("already interesting:", idx);
+	    }
+	}
+    },
+
+    onPieceMissing: function(idx) {
+	this.torrent.onPieceMissing(idx);
+    },
+
+    onPieceValid: function(idx) {
+	this.interestingPieces = this.interestingPieces.filter(function(piece) {
+	    return piece.pieceNumber !== idx;
+	});
+	this.torrent.onPieceValid(idx);
     },
 
     getDonePercent: function() {
@@ -178,19 +218,16 @@ Store.prototype = {
 	    cb();
     },
 
-    // TODO: could refactor out
     nextToHash: function() {
-	var i;
-	for(i = 0; i < this.pieces.length; i++) {
-	    var piece = this.pieces[i];
-	    if (piece.onValidCbs.length > 0 && piece.canContinueHashing())
-		return piece;
+	function lookForPiece(pieces) {
+	    for(var i = 0; i < pieces.length; i++) {
+		var piece = pieces[i];
+		if (piece.canContinueHashing())
+		    return piece;
+	    }
 	}
-	for(i = 0; i < this.pieces.length; i++) {
-	    var piece = this.pieces[i];
-	    if (piece.canContinueHashing())
-		return piece;
-	}
+	return lookForPiece(this.interestingPieces) ||
+	    lookForPiece(this.pieces);
     },
 
     mayHash: function() {
@@ -260,7 +297,7 @@ StorePiece.prototype = {
 		requestedChunks.push(chunk);
 	    }
 	}
-	var onPieceMissing = this.store.onPieceMissing.bind(this, this.pieceNumber);
+	var onPieceMissing = this.store.onPieceMissing.bind(this.store, this.pieceNumber);
 	if (result)
 	    result.cancel = function() {
 		requestedChunks.forEach(function(chunk) {
