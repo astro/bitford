@@ -16,12 +16,14 @@ BitTorrent protocol 100% in JavaScript.
 
 ## Roadmap
 
+* Rates w/o overhead
 * Show ETA
 * Server ports bind retrying
 * Transition to seeder
 * Tracker events
 * Priorities & unchoke buckets
 * Session restore + clean-up unused files
+* Remove/Save/Play as links when single-file
 
 ## Unsolved
 
