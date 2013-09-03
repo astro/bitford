@@ -38,7 +38,7 @@ app.directive('piecesCanvas', function() {
 	link: function($scope, element, attrs) {
 	    function draw() {
 		if (attrs['piecesCanvas'] && !$scope.$eval(attrs['piecesCanvas'])) {
-		    setTimeout(draw, 100);
+		    setTimeout(draw, 300);
 		    return;
 		}
 
@@ -95,7 +95,7 @@ app.directive('piecesCanvas', function() {
 
 		var t2 = Date.now();
 		/* Allow max. 10% CPU time */
-		setTimeout(draw, Math.ceil(Math.max(300, t2 - t1) / .10));
+		setTimeout(draw, Math.ceil(Math.max(50, t2 - t1) / .10));
 	    }
 	    draw();
         }
