@@ -58,14 +58,13 @@ function handleStreamRequest(req, res, path, size, torrent) {
         if (looping)
             return;
         looping = true;
-        console.log("loop", bytes, "/", end, size);
+        // console.log("loop", bytes, "/", end, size);
         if (bytes >= size || bytes >= end) {
             res.end();
             return;
         }
 
         torrent.store.consumeFile(path, bytes, function(data) {
-            console.log("consumed", path, bytes, data.byteLength);
             if (data.byteLength > 0) {
                 if (bytes + data.byteLength > end)
                     data = data.slice(0, end - bytes);

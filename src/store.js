@@ -99,6 +99,7 @@ Store.prototype = {
 		return chunk;
 	}
 
+	console.log("nothing to download for", peer);
 	return null;
     },
 
@@ -135,11 +136,8 @@ Store.prototype = {
 	    var alreadyPresent = this.interestingPieces.some(function(presentPiece) {
 		return "" + presentPiece.pieceNumber === idx;
 	    });
-	    if (!alreadyPresent) {
+	    if (!alreadyPresent)
 		this.interestingPieces.push(piece);
-	    } else {
-		console.log("already interesting:", idx);
-	    }
 	}
     },
 
@@ -148,6 +146,7 @@ Store.prototype = {
     },
 
     onPieceValid: function(idx) {
+	console.log("piece",idx,"valid");
 	this.interestingPieces = this.interestingPieces.filter(function(piece) {
 	    return piece.pieceNumber !== idx;
 	});
@@ -187,14 +186,12 @@ Store.prototype = {
 		found = arrayEq(chunk.path, path) &&
 		    chunk.fileOffset <= offset &&
 		    chunk.fileOffset + chunk.length > offset;
-		if (found) console.log("offset", offset, "found in piece", i, "chunk", j);
 	    }
 	}
 
 	if (found) {
 	    piece.addOnValid(function() {
 		var chunkOffset = piece.pieceNumber * this.pieceLength + chunk.offset;
-		console.log("read from", chunkOffset, "+", chunk.length);
 		this.backend.readFrom(chunkOffset, function(data) {
 		    if (data.byteLength > chunk.length)
 			data = data.slice(0, chunk.length);
@@ -460,6 +457,7 @@ StorePiece.prototype = {
 	    this.store.onPieceMissing(this.pieceNumber);
 	} else {
 	    /* Hash checked: validate */
+	    console.log("onValid", this.pieceNumber);
 	    this.store.onPieceValid(this.pieceNumber);
 	    var onValidCbs = this.onValidCbs;
 	    this.onValidCbs = [];
@@ -474,10 +472,10 @@ StorePiece.prototype = {
     },
 
     addOnValid: function(cb) {
-	console.log("addOnValid", this.valid, this.pieceNumber);
 	if (this.valid)
 	    cb();
 	else {
+	    console.log("addOnValid", this.valid, this.pieceNumber);
 	    this.onValidCbs.push(cb);
 	    this.store.onPieceMissing(this.pieceNumber);
 	}
