@@ -39,7 +39,7 @@ function Store(torrent, pieceHashes, pieceLength) {
     }
     this.fileEntries = {};
     /* Lower bound for interestingPieces */
-    this.interestingPiecesThreshold = Math.max(2, Math.ceil(2 * 1024 * 1024 / pieceLength));
+    this.interestingPiecesThreshold = Math.max(2, Math.ceil(4 * 1024 * 1024 / pieceLength));
     /* Upper bound for interestingPieces */
     this.piecesReadahead = 2 * this.interestingPiecesThreshold;
     this.interestingPieces = [];
