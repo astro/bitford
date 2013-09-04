@@ -87,8 +87,8 @@ Store.prototype = {
     },
 
     // TODO: could return up to a number chunks (optimization)
-    nextToDownload: function(peer) {
-	this.fillInterestingPieces(peer);
+    nextToDownload: function(peer, forceOne) {
+	this.fillInterestingPieces(peer, forceOne);
 
 	for(var i = 0; i < this.interestingPieces.length; i++) {
 	    var piece = this.interestingPieces[i];
@@ -99,12 +99,17 @@ Store.prototype = {
 		return chunk;
 	}
 
-	console.log("nothing to download for", peer);
-	return null;
+	if (!forceOne) {
+	    /* recurse forcefully */
+	    return this.nextToDownload(peer, true);
+	} else {
+	    console.log("nothing to download for", peer);
+	    return null;
+	}
     },
 
-    fillInterestingPieces: function(hintPeer) {
-	if (this.interestingPieces.length >= this.interestingPiecesThreshold)
+    fillInterestingPieces: function(hintPeer, forceOne) {
+	if (!forceOne && this.interestingPieces.length >= this.interestingPiecesThreshold)
 	    /* Don't even start working unless neccessary */
 	    return;
 
@@ -130,14 +135,16 @@ Store.prototype = {
 	    else
 		return r2 - r1;
 	});
-	for(i = 0; this.interestingPieces.length < this.piecesReadahead && i < idxs.length; i++) {
+	for(i = 0; (forceOne || this.interestingPieces.length < this.piecesReadahead) && i < idxs.length; i++) {
 	    var idx = idxs[i];
 	    piece = this.pieces[idx];
 	    var alreadyPresent = this.interestingPieces.some(function(presentPiece) {
 		return "" + presentPiece.pieceNumber === idx;
 	    });
-	    if (!alreadyPresent)
+	    if (!alreadyPresent) {
 		this.interestingPieces.push(piece);
+		forceOne = false;
+	    }
 	}
     },
 
