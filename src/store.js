@@ -133,7 +133,7 @@ Store.prototype = {
 	    var idx = idxs[i];
 	    piece = this.pieces[idx];
 	    var alreadyPresent = this.interestingPieces.some(function(presentPiece) {
-		return presentPiece.pieceNumber === idx;
+		return "" + presentPiece.pieceNumber === idx;
 	    });
 	    if (!alreadyPresent) {
 		this.interestingPieces.push(piece);
