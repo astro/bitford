@@ -179,42 +179,43 @@ Store.prototype = {
     },
 
     consumeFile: function(path, offset, cb) {
-	var found = false;
-	for(var i = 0; !found && i < this.pieces.length; i++) {
+	var i, j, found = false;
+	for(i = 0; !found && i < this.pieces.length; i++) {
 	    var piece = this.pieces[i];
-	    for(var j = 0; !found && j < piece.chunks.length; j++) {
+	    for(j = 0; !found && j < piece.chunks.length; j++) {
 		var chunk = piece.chunks[j];
 		found = arrayEq(chunk.path, path) &&
 		    chunk.fileOffset <= offset &&
 		    chunk.fileOffset + chunk.length > offset;
-	    }
-	    if (found) {
-		piece.addOnValid(function() {
-		    var chunkOffset = i * this.pieceLength + chunk.offset;
-		    this.backend.readFrom(chunkOffset, function(data) {
-			if (data.byteLength > chunk.length)
-			    data = data.slice(0, chunk.length);
-			if (chunkOffset < offset)
-			    data = data.slice(offset - chunkOffset);
-			cb(data);
-		    });
-		}.bind(this));
-
-		/* Interest for readahead */
-		var readahead = [];
-		for(var i2 = i; i2 < Math.min(i + this.piecesReadahead, this.pieces.length); i2++) {
-		    if (!this.pieces[i2].valid)
-			readahead.push(i2);
-		}
-		this.interestingPieces = readahead.map(function(idx) {
-		    return this.pieces[idx];
-		}.bind(this)).concat(this.interestingPieces.filter(function(piece) {
-		    return readahead.indexOf("" + piece.pieceNumber) === -1;
-		}));
+		if (found) console.log("offset", offset, "found in piece", i, "chunk", j);
 	    }
 	}
 
-	if (!found) {
+	if (found) {
+	    piece.addOnValid(function() {
+		var chunkOffset = piece.pieceNumber * this.pieceLength + chunk.offset;
+		console.log("read from", chunkOffset, "+", chunk.length);
+		this.backend.readFrom(chunkOffset, function(data) {
+		    if (data.byteLength > chunk.length)
+			data = data.slice(0, chunk.length);
+		    if (chunkOffset < offset)
+			data = data.slice(offset - chunkOffset);
+		    cb(data);
+		});
+	    }.bind(this));
+	    
+	    /* Interest for readahead */
+	    var readahead = [];
+	    for(i = piece.pieceNumber; i < Math.min(piece.pieceNumber + this.piecesReadahead, this.pieces.length); i++) {
+		if (!this.pieces[i].valid)
+		    readahead.push(i);
+	    }
+	    this.interestingPieces = readahead.map(function(i) {
+		return this.pieces[i];
+	    }.bind(this)).concat(this.interestingPieces.filter(function(piece) {
+		return readahead.indexOf("" + piece.pieceNumber) === -1;
+	    }));
+	} else {
 	    console.warn("consumeFile: not found", path, "+", offset);
 	    cb();
 	}
