@@ -119,5 +119,15 @@ Torrent.prototype = {
 		peer.sendHave(pieceNumber);
 	});
 	this.bytesLeft = this.store.getBytesLeft();
+
+	this.mayRequestPeers();
+    },
+
+    mayRequestPeers: function() {
+	for(var i = 0; i < this.peers.length; i++) {
+	    var peer = this.peers[i];
+	    if (peer.state === 'connected')
+		peer.canRequest();
+	}
     }
 };
