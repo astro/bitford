@@ -297,8 +297,6 @@ function StorePiece(store, pieceNumber, chunks, expectedHash) {
     this.onValidCbs = [];
 }
 StorePiece.prototype = {
-    state: 'missing',
-
     nextToDownload: function(peer) {
 	var result, requestedChunks = [];
 	for(var i = 0; i < this.chunks.length && (!result || result.length < CHUNK_LENGTH); i++) {
