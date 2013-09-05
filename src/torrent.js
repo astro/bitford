@@ -14,7 +14,7 @@ function Torrent(meta) {
 	    c = 97 + r - 36;  /* a..z */
 	this.peerId += String.fromCharCode(c);
     }
-    this.upRate = new RateEstimator();
+    this.upRate = new RateEstimator();  /* Altered by Peer */
     this.downRate = new RateEstimator();
     this.peers = [];
     var pieceLength;
@@ -42,7 +42,7 @@ function Torrent(meta) {
 
     this.bytesLeft = this.store.getBytesLeft();
     this.bytesDownloaded = 0;
-    this.bytesUploaded = 0;
+    this.bytesUploaded = 0;  /* Altered by Peer */
 
     /* Init trackers */
     if (meta['announce-list'])

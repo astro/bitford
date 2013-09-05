@@ -96,13 +96,11 @@ Peer.prototype = {
 
 		// console.log(this.ip, "send", new Uint8Array(buffer));
 		this.sock.write(buffer);
-		this.upRate.add(buffer.byteLength);
 	    }.bind(this)
 	});
     },
 
     sendHandshake: function() {
-	this.upRate.add(20 + 8 + 20 + 20);
 	// "\19BitTorrent protocol"
         this.sock.write(new Uint8Array([
             19,
@@ -151,7 +149,6 @@ Peer.prototype = {
 	if (data.byteLength < 1)
 	    return;
 	this.buffer.append(data);
-	this.downRate.add(data.byteLength);
 
 	var fail = function(msg) {
 	    console.warn("sock", this.ip, ":", this.port, "fail", msg);
@@ -318,6 +315,7 @@ Peer.prototype = {
 	    }
 
 	    /* Write & resume */
+	    this.downRate.add(data.length);
 	    this.torrent.recvData(piece, offset, data, onProcessed);
 	} else {
 	    console.warn("Received unexpected piece", piece, offset, data.length);
@@ -413,6 +411,7 @@ Peer.prototype = {
 			for(var i = 0; i < data.byteLength; i++)
 			    msg.setInt8(9 + i, data[i]);
 			this.sendMessage(msg);
+			this.upRate.add(data.length);
 			this.torrent.upRate.add(data.length);
 			this.torrent.bytesUploaded += data.length;
 		    }.bind(this));
