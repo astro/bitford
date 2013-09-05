@@ -73,7 +73,7 @@ Peer.prototype = {
     connect: function() {
 	this.state = 'connecting';
 	connectTCP(this.ip, this.port, function(error, sock) {
-	    console.log(this.ip, "connectTCP", error, sock);
+	    console.log(this.ip, ":", this.port, "connectTCP", error, sock);
 	    if (error) {
 		this.state = 'error';
 		this.error = error.message || error.toString();

@@ -32,9 +32,12 @@ TrackerGroup.prototype = {
 	    }
 	    if (peers6 && peers6.__proto__ && peers6.__proto__.constructor === Uint8Array) {
 		/* Compact IPv6 */
-		for(var i = 0; i < peers6.length; i += 18) {
-		    var ip = [0, 1, 2, 3, 4, 5, 6, 7, 8].map(function(j) { return (peers6[i + j * 2] << 8 | peers6[i + j * 2 + 1]).toString(16); }).join(":");
-		    var port = (peers[i + 16] << 8) | peers[i + 17];
+		peers6 = new DataView(peers6.buffer);
+		for(var i = 0; i < peers6.byteLength; i += 18) {
+		    var ip = [0, 1, 2, 3, 4, 5, 6, 7].map(function(j) {
+			return peers6.getUint16(i + j * 2).toString(16);
+		    }).join(":");
+		    var port = peers6.getUint16(i + 16);
 		    this.torrent.addPeer({ ip: ip, port: port });
 		}
 	    }
