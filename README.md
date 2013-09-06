@@ -18,7 +18,6 @@ BitTorrent protocol 100% in JavaScript.
 
 ### UI
 
-* Show ETA
 * Remove/Save/Play as links when single-file
 
 ### Background

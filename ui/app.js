@@ -127,6 +127,24 @@ app.controller('TorrentController', function($scope) {
     $scope.tab = 'files';
     $scope.round = Math.round;
     $scope.humanSize = humanSize;
+    $scope.estimateTime = function(torrent) {
+	var seconds = torrent.bytesLeft / torrent.downRate.getRate();
+	if (seconds < 7 * 24 * 60 * 60)
+	    return formatSeconds(seconds);
+	else
+	    return "∞";
+    };
+    $scope.ratio = function(torrent) {
+	if (torrent.bytesDownloaded >= 1) {
+	    function pad(s) {
+		while(s.length < 2)
+		    s = "0" + s;
+	    }
+	    var r = torrent.bytesUploaded / torrent.bytesDownloaded;
+	    return Math.floor(r) + "." + pad(Math.floor(100 * r));
+	} else
+	    return "∞";
+    };
     $scope.peerIdToClient = peerIdToClient;
     $scope.formatInterval = function(time) {
 	if (typeof time === 'number') {

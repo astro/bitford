@@ -43,10 +43,19 @@
 	       class="torrent">
 	<h2>{{torrent.name}}</h2>
 	<p class="size">
-	  {{torrent.store.getDonePercent()}}%
-	  of {{humanSize(torrent.store.size)}}
-	  at {{humanSize(torrent.upRate.getRate())}}/s up,
-          {{humanSize(torrent.downRate.getRate())}}/s down
+	  <span ng-hide="torrent.seeding">
+	    {{torrent.store.getDonePercent()}}%
+	    of {{humanSize(torrent.store.size)}}
+	    at {{humanSize(torrent.upRate.getRate())}}/s up,
+            {{humanSize(torrent.downRate.getRate())}}/s down
+	    (ETA: {{estimateTime(torrent)}})
+	  </span>
+	  <span ng-show="torrent.seeding">
+	    Uploaded {{humanSize(torrent.bytesUploaded)}}
+	    (Ratio: {{formatRatio(torrent)}})
+	    of {{humanSize(torrent.store.size)}}
+	    at {{humanSize(torrent.upRate.getRate())}}/s up
+	  </span>
 	  <button ng-click="removeButton()">Remove</button>
 	</p>
 	<div ng-show="selected == torrent">
