@@ -300,15 +300,6 @@ Peer.prototype = {
 
 	var chunk = this.removeRequestedChunk(piece, offset, data.length);
 	if (chunk) {
-	    var delay = Date.now() - chunk.sendTime;
-	    if (!this.minDelay)
-		this.minDelay = delay;
-	    else if (delay < this.minDelay) {
-		this.minDelay = 0.8 * this.minDelay + 0.2 * delay;
-	    } else if (delay < 1.5 * this.minDelay) {
-	    } else {
-		this.minDelay = 0.99 * this.minDelay + 0.01 * delay;
-	    }
 	    if (chunk.timeout) {
 		clearTimeout(chunk.timeout);
 		chunk.timeout = null;
@@ -474,8 +465,6 @@ Peer.prototype = {
     request: function(chunk) {
 	var piece = chunk.piece, offset = chunk.offset, length = chunk.length;
 	/* Piece request */
-	chunk.sendTime = Date.now();
-
 	var msg = new Message(13);
 	msg.setInt8(0, 6);
 	msg.setUint32(1, piece);
@@ -483,17 +472,15 @@ Peer.prototype = {
 	msg.setUint32(9, length);
 	this.sendMessage(msg);
 
-	var delay = this.minDelay || 500;
 	chunk.timeout = setTimeout(function() {
-	    console.log(this.ip, "chunk timeout", chunk.piece, ":", chunk.offset, "after", 5 * this.inflightThreshold * delay);
 	    chunk.timeout = null;
 	    /* Let so. else try it */
 	    chunk.cancel();
 	    setTimeout(function() {
 		this.removeRequestedChunk(piece, offset, length);
 		this.sendCancel(piece, offset, length);
-	    }.bind(this), delay);
-	}.bind(this), 5 * this.inflightThreshold * delay);
+	    }.bind(this), 2000);
+	}.bind(this), 3000);
 	this.requestedChunks.push(chunk);
     },
 
