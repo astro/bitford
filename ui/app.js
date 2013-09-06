@@ -137,8 +137,10 @@ app.controller('TorrentController', function($scope) {
     $scope.ratio = function(torrent) {
 	if (torrent.bytesDownloaded >= 1) {
 	    function pad(s) {
+		s = "" + s;
 		while(s.length < 2)
 		    s = "0" + s;
+		return s;
 	    }
 	    var r = torrent.bytesUploaded / torrent.bytesDownloaded;
 	    return Math.floor(r) + "." + pad(Math.floor(100 * r));
@@ -270,6 +272,9 @@ var DAY = 24 * HOUR;
 var MONTH = 30 * DAY;
 var YEAR = 365 * DAY;
 function formatSeconds(secs) {
+    if (secs < 1)
+	return "now";
+
     var frags = [];
     function addFrag(n, s) {
 	if (n !== 0 || frags.length > 0)

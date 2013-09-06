@@ -52,7 +52,7 @@
 	  </span>
 	  <span ng-show="torrent.seeding">
 	    Uploaded {{humanSize(torrent.bytesUploaded)}}
-	    (Ratio: {{formatRatio(torrent)}})
+	    (Ratio: {{ratio(torrent)}})
 	    of {{humanSize(torrent.store.size)}}
 	    at {{humanSize(torrent.upRate.getRate())}}/s up
 	  </span>
