@@ -169,12 +169,10 @@ Store.prototype = {
 	var result = 0;
 	for(var i = 0; i < this.pieces.length; i++) {
 	    if (!this.pieces[i].valid) {
-		if (i < this.pieces.length - 1)
-		    result += this.pieceLength;
-		else
-		    this.pieces[i].chunks.forEach(function(chunk) {
+		this.pieces[i].chunks.forEach(function(chunk) {
+		    if (chunk.state === 'missing' || chunk.state === 'requested')
 			result += chunk.length;
-		    });
+		});
 	    }
 	}
 	return result;
