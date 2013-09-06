@@ -304,14 +304,16 @@ Peer.prototype = {
 		clearTimeout(chunk.timeout);
 		chunk.timeout = null;
 	    }
-
-	    /* Write & resume */
-	    this.downRate.add(data.length);
-	    this.torrent.recvData(piece, offset, data, onProcessed);
 	} else {
 	    console.warn("Received unexpected piece", piece, offset, data.length);
-	    onProcessed();
 	}
+	/* Write & resume */
+	if (data && data.length > 0) {
+	    this.downRate.add(data.length);
+	    this.torrent.recvData(piece, offset, data, onProcessed);
+	} else
+	    onProcessed();
+
 	this.canRequest();
     },
 
