@@ -354,6 +354,16 @@ Peer.prototype = {
 	this.interesting = interesting;
 	// TODO: We'll need to send not interested as our pieces complete
 	this.canRequest();
+
+	if (!this.seeding) {
+	    var seeding = true;
+	    for(var i = 0; seeding && i < this.torrent.pieces.length; i++)
+		seeding = this.has(i);
+	    this.seeding = seeding;
+	}
+	/* Are we both seeders? */
+	if (this.seeding && this.torrent.seeding)
+	    this.end();
     },
 
     discardRequestedChunks: function() {

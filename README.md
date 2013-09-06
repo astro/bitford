@@ -22,7 +22,6 @@ BitTorrent protocol 100% in JavaScript.
 
 ### Background
 
-* Transition to seeder
 * Tracker event
 * Smarter peer selection
 * Priorities & unchoke buckets

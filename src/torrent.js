@@ -89,6 +89,17 @@ Torrent.prototype = {
 	this.peers.push(new Peer(this, info));
     },
 
+    mayDisconnectPeers: function() {
+	if (this.seeding) {
+	    /* Disconnect from other seeders */
+	    this.peers.forEach(function(peer) {
+		if (peer.state === 'connected' && peer.seeding)
+		    console.log("ending seeder", peer.ip);
+		    peer.end();
+	    });
+	}
+    },
+
     getBitfield: function() {
 	var result = new Uint8Array(Math.ceil(this.pieces / 8));
 	var pieces = this.store.pieces;
@@ -118,7 +129,11 @@ Torrent.prototype = {
 		peer.sendHave(pieceNumber);
 	});
 
-	this.mayRequestPeers();
+	if (this.store.getBytesLeft() > 0)
+	    this.mayRequestPeers();
+	else
+	    /* Become seeder */
+	    this.onCompleted();
     },
 
     mayRequestPeers: function() {
@@ -127,5 +142,14 @@ Torrent.prototype = {
 	    if (peer.state === 'connected')
 		peer.canRequest();
 	}
+    },
+
+    onCompleted: function() {
+	if (this.seeding)
+	    return;
+	this.seeding = true;
+
+	// TODO: tell trackers
+	this.mayDisconnectPeers();
     }
 };
