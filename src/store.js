@@ -166,6 +166,9 @@ Store.prototype = {
     },
 
     getBytesLeft: function() {
+	if (typeof this.bytesLeft === 'number')
+	    return this.bytesLeft;
+
 	var result = 0;
 	for(var i = 0; i < this.pieces.length; i++) {
 	    if (!this.pieces[i].valid) {
@@ -175,6 +178,7 @@ Store.prototype = {
 		});
 	    }
 	}
+	this.bytesLeft = result;
 	return result;
     },
 
@@ -231,6 +235,7 @@ Store.prototype = {
 		cb();
 		this.mayHash();
 	    }.bind(this));
+	    this.bytesLeft = null;
 	} else
 	    cb();
     },

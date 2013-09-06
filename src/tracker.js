@@ -95,7 +95,7 @@ Tracker.prototype = {
 	    port: peerPort,
 	    uploaded: this.torrent.bytesUploaded,
 	    downloaded: this.torrent.bytesDownloaded,
-	    left: this.torrent.bytesLeft,
+	    left: this.torrent.store.getBytesLeft(),
 	    compact: 1
 	};
         if (this.started) {
@@ -210,8 +210,9 @@ Tracker.prototype = {
 		}
 		d.setUint32(56, torrent.bytesDownloaded >> 32);
 		d.setUint32(60, torrent.bytesDownloaded & 0xffffffff);
-		d.setUint32(64, torrent.bytesLeft >> 32);
-		d.setUint32(68, torrent.bytesLeft & 0xffffffff);
+		var bytesLeft = torrent.store.getBytesLeft();
+		d.setUint32(64, bytesLeft >> 32);
+		d.setUint32(68, bytesLeft & 0xffffffff);
 		d.setUint32(72, torrent.bytesUploaded >> 32);
 		d.setUint32(76, torrent.bytesUploaded & 0xffffffff);
 		send(announceReq, function(announceRes) {

@@ -128,7 +128,7 @@ app.controller('TorrentController', function($scope) {
     $scope.round = Math.round;
     $scope.humanSize = humanSize;
     $scope.estimateTime = function(torrent) {
-	var seconds = torrent.bytesLeft / torrent.downRate.getRate();
+	var seconds = torrent.store.getBytesLeft() / torrent.downRate.getRate();
 	if (seconds < 7 * 24 * 60 * 60)
 	    return formatSeconds(seconds);
 	else

@@ -40,7 +40,6 @@ function Torrent(meta) {
 	throw "Invalid torrent: no files";
     this.store = new Store(this, pieces, pieceLength);
 
-    this.bytesLeft = this.store.getBytesLeft();
     this.bytesDownloaded = 0;
     this.bytesUploaded = 0;  /* Altered by Peer */
 
@@ -118,7 +117,6 @@ Torrent.prototype = {
 	    if (peer.state === 'connected')
 		peer.sendHave(pieceNumber);
 	});
-	this.bytesLeft = this.store.getBytesLeft();
 
 	this.mayRequestPeers();
     },
