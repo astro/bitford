@@ -433,32 +433,41 @@ Peer.prototype = {
 
 	while(this.requestedChunks.length < this.inflightThreshold) {
 	    var chunk = this.torrent.store.nextToDownload(this);
+	    if (chunk) {
+		this.request(chunk);
+		/* Skip to next */
+		continue;
+	    }
+
+	    /* Work stealing */
+	    var maxReqs = 0, maxReqsIdx = null;
+	    for(var i = 0; i < this.torrent.peers.length; i++) {
+		var reqs = this.torrent.peers[i].requestedChunks.length;
+		if (reqs > maxReqs) {
+		    maxReqs = reqs;
+		    maxReqsIdx = i;
+		}
+	    }
+	    if (maxReqs > 2 && maxReqs >= 2 * this.requestedChunks.length) {
+		var peer = this.torrent.peers[maxReqsIdx];
+		console.log("peer", peer.ip, "has max reqs:", maxReqs);
+		chunk = peer.requestedChunks.pop();
+		peer.sendCancel(chunk.piece, chunk.offset, chunk.length);
+		if (chunk && this.has(chunk.piece)) {
+		    console.log(this.ip, "stole from", peer.ip, ":", chunk);
+		    chunk.peer = this;
+		    this.request(chunk);
+		    continue;
+		}
+	    }
+
+	    /* Desperate */
+	    chunk = this.torrent.store.nextToDownload(this, true);
 	    if (chunk)
 		this.request(chunk);
-	    else {
-		/* Work stealing */
-		var maxReqs = 0, maxReqsIdx = null;
-		for(var i = 0; i < this.torrent.peers.length; i++) {
-		    var reqs = this.torrent.peers[i].requestedChunks.length;
-		    if (reqs > maxReqs) {
-			maxReqs = reqs;
-			maxReqsIdx = i;
-		    }
-		}
-		if (maxReqs > 2 && maxReqs >= 2 * this.requestedChunks.length) {
-		    var peer = this.torrent.peers[maxReqsIdx];
-		    console.log("peer", peer.ip, "has max reqs:", maxReqs);
-		    chunk = peer.requestedChunks.pop();
-		    peer.sendCancel(chunk.piece, chunk.offset, chunk.length);
-		    if (chunk && this.has(chunk.piece)) {
-			console.log(this.ip, "stole from", peer.ip, ":", chunk);
-			chunk.peer = this;
-			this.request(chunk);
-		    } else
-			break;
-		} else
-		    break;
-	    }
+	    else
+		/* Nothing can be done */
+		break;
 	}
     },
 

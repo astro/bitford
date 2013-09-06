@@ -38,10 +38,12 @@ function Store(torrent, pieceHashes, pieceLength) {
 	this.pieces.push(new StorePiece(this, this.pieces.length, chunks, pieceHashes[this.pieces.length]));
     }
     this.fileEntries = {};
+    // TODO: these should be proportional to torrent rate,
+    // to have piece stealing in time
     /* Lower bound for interestingPieces */
-    this.interestingPiecesThreshold = Math.max(2, Math.ceil(4 * 1024 * 1024 / pieceLength));
+    this.interestingPiecesThreshold = Math.max(2, Math.ceil(1 * 1024 * 1024 / pieceLength));
     /* Upper bound for interestingPieces */
-    this.piecesReadahead = 2 * this.interestingPiecesThreshold;
+    this.piecesReadahead = 4 * this.interestingPiecesThreshold;
     this.interestingPieces = [];
 
     this.sha1Worker = new SHA1Worker();
@@ -99,13 +101,7 @@ Store.prototype = {
 		return chunk;
 	}
 
-	if (!forceOne) {
-	    /* recurse forcefully */
-	    return this.nextToDownload(peer, true);
-	} else {
-	    console.log("nothing to download for", peer);
-	    return null;
-	}
+	return null;
     },
 
     fillInterestingPieces: function(hintPeer, forceOne) {
@@ -217,7 +213,7 @@ Store.prototype = {
 	    this.interestingPieces = readahead.map(function(i) {
 		return this.pieces[i];
 	    }.bind(this)).concat(this.interestingPieces.filter(function(piece) {
-		return readahead.indexOf("" + piece.pieceNumber) === -1;
+		return readahead.indexOf(piece.pieceNumber) === -1;
 	    }));
 	} else {
 	    console.warn("consumeFile: not found", path, "+", offset);
