@@ -136,14 +136,8 @@ app.controller('TorrentController', function($scope) {
     };
     $scope.ratio = function(torrent) {
 	if (torrent.bytesDownloaded >= 1) {
-	    function pad(s) {
-		s = "" + s;
-		while(s.length < 2)
-		    s = "0" + s;
-		return s;
-	    }
 	    var r = torrent.bytesUploaded / torrent.bytesDownloaded;
-	    return Math.floor(r) + "." + pad(Math.floor(100 * r));
+	    return Math.floor(r) + "." + pad(Math.floor(100 * r), 2, "0");
 	} else
 	    return "∞";
     };
@@ -416,4 +410,11 @@ function peerIdToClient(peerId) {
 	/* TODO: Shad0w style */
 	return peerId.slice(0, 8);
     }
+}
+
+function pad(s, len, padding) {
+    s = "" + s;
+    while(s.length < len)
+	s = padding + s;
+    return s;
 }
