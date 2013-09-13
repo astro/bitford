@@ -488,9 +488,9 @@ Peer.prototype = {
 	    chunk.timeout = null;
 	    /* Let so. else try it */
 	    chunk.cancel();
+	    this.sendCancel(piece, offset, length);
 	    setTimeout(function() {
 		this.removeRequestedChunk(piece, offset, length);
-		this.sendCancel(piece, offset, length);
 	    }.bind(this), 2000);
 	}.bind(this), 3000);
 	this.requestedChunks.push(chunk);

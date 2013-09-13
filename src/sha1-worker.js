@@ -17,7 +17,7 @@ var onmessage = function(ev) {
 	delete sha1s[finalize.index];
 	postMessage({ hash: hash }, [hash]);
     } else if (finalize) {
-	console.error("sha1-worker: finalizing non-existing", finalize.index);
+	console.error("sha1-worker: finalizing non-existing " + finalize.index);
 	var hash = new Uint8Array(20);  // dummy
 	postMessage({ hash: hash }, [hash]);
     }

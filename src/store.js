@@ -214,10 +214,12 @@ Store.prototype = {
 	    }.bind(this));
 	    
 	    /* Interest for readahead */
-	    var readahead = [];
-	    for(i = piece.pieceNumber; i < Math.min(piece.pieceNumber + this.piecesReadahead, this.pieces.length); i++) {
-		if (!this.pieces[i].valid)
+	    var readahead = [], piecesReadahead = this.piecesReadahead;
+	    for(i = piece.pieceNumber; piecesReadahead > 0 && i < this.pieces.length; i++) {
+		if (!this.pieces[i].valid) {
+		    piecesReadahead--;
 		    readahead.push(i);
+		}
 	    }
 	    this.interestingPieces = readahead.map(function(i) {
 		return this.pieces[i];
@@ -349,28 +351,34 @@ StorePiece.prototype = {
     },
 
     write: function(offset, data, cb) {
-	this.store.backend.write(
-	    this.pieceNumber * this.store.pieceLength + offset,
-	    data, function() {
+	for(var i = 0; i < this.chunks.length; i++) {
+	    var chunk = this.chunks[i];
+	    // TODO: may need to write to multiple chunks in multi-file torrents
+	    if (chunk.offset === offset &&
+		chunk.length === data.length &&
+		(chunk.state === 'missing' || chunk.state === 'requested')) {
+		
+		chunk.state = 'received';
+		this.store.backend.write(
+		    this.pieceNumber * this.store.pieceLength + chunk.offset,
+		    data, function() {
+			chunk.state = 'written';
 
-	    for(var i = 0; i < this.chunks.length; i++) {
-		var chunk = this.chunks[i];
-		// TODO: may need to write to multiple chunks in multi-file torrents
-		if (chunk.offset === offset &&
-		    chunk.length === data.length)
-		    chunk.state = 'written';
-		else if (chunk.offset > offset)
-		    break;
+			this.canHash(offset, data, cb);
+		    }.bind(this));
+		return;
 	    }
-
-	    this.canHash(offset, data, cb);
-	}.bind(this));
+	    else if (chunk.offset > offset)
+		break;
+	}
+	cb();
     },
 
     canHash: function(offset, data, cb) {
-	if (offset > this.sha1pos)
+	if (offset > this.sha1pos) {
+	    /* To be picked up by canContinueHashing when preceding data has been hashed */
 	    return cb();
-	else if (offset < this.sha1pos) {
+	} else if (offset < this.sha1pos) {
 	    data.take(this.sha1pos - offset);
 	}
 	// console.log("piece", this.store.pieces.indexOf(this), "canHash", offset, this.sha1pos);
