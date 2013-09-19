@@ -46,16 +46,6 @@
 	    "extensions": ["torrent"]
 	}
     },
-    "intents": {
-        "http://webintents.org/view" : [{
-            "title" : "Start BitTorrent download",
-            "type" : ["application/x-bittorrent"]
-        }],
-        "http://webintents.org/save" : [{
-            "title" : "Start BitTorrent download",
-            "type" : ["application/x-bittorrent"]
-        }]
-    },
     "icons": {
 	"128": "bitford-128.png",
 	"48": "bitford-48.png",
