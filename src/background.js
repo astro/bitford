@@ -91,10 +91,10 @@ function restoreSession(cb) {
 		addTorrent(cursor.value);
 		cursor.continue();
 	    }
-	    };
-	    req.onerror = function(e) {
-		console.error("cursor", e);
-	    };
+	};
+	req.onerror = function(e) {
+	    console.error("cursor", e);
+	};
     }, cb);
 }
 
@@ -145,8 +145,12 @@ openSession(function(db) {
 
     loadSessionSettings();
     restoreSession(function() {
-
-	// TODO: reclaim storage
+	/* reclaim storage */
+	reclaimStorage(torrents.map(function(torrent) {
+	    return torrent.infoHash;
+	}), function(totalReclaimed) {
+	    console.log("Reclaimed", totalReclaimed, "bytes of stale data");
+	});
     });
 });
 

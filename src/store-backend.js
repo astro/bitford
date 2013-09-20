@@ -2,6 +2,8 @@ window.indexedDB = window.indexedDB || window.mozIndexedDB || window.webkitIndex
 window.IDBTransaction = window.IDBTransaction || window.webkitIDBTransaction || window.msIDBTransaction;
 window.IDBKeyRange = window.IDBKeyRange || window.webkitIDBKeyRange || window.msIDBKeyRange;
 
+var STORE_DB_VERSION = 1;
+
 /**
  * Puts all the data in multiple files seperated by offsets, to
  * alleviate lack of sparse files.
@@ -14,7 +16,7 @@ function StoreBackend(basename, existingCb) {
 	return basename + "." + offset;
     };
 
-    var req = indexedDB.open("bitford-store", 1);
+    var req = indexedDB.open("bitford-store", STORE_DB_VERSION);
     req.onerror = function() {
 	console.error("indexedDB", arguments);
     };
@@ -29,6 +31,7 @@ function StoreBackend(basename, existingCb) {
 	    throw "No DB";
 
 	/* Recover pre-existing chunks from last session */
+	this.existingCb = existingCb;
 	this.recover();
 	var onOpenCbs = this.onOpenCbs;
 	delete this.onOpenCbs;
@@ -66,12 +69,12 @@ StoreBackend.prototype = {
 	    );
 	    req.onsuccess = function(event) {
 		var cursor = event.target.result;
-		if (cursor && cursor.key.indexOf(basename + ".") === 0) {
-		    var offset = parseInt(cursor.key.slice(basename.length + 1), 16);
-		    existingCb(offset, cursor.value.byteLength);
+		if (cursor && cursor.key.indexOf(this.basename + ".") === 0) {
+		    var offset = parseInt(cursor.key.slice(this.basename.length + 1), 16);
+		    this.existingCb(offset, cursor.value.byteLength);
 		    cursor.continue();
 		}
-	    };
+	    }.bind(this);
 	    req.onerror = function(e) {
 		console.error("cursor", e);
 	    };
@@ -154,3 +157,43 @@ StoreBackend.prototype = {
 	}.bind(this));
     }
 };
+
+
+function reclaimStorage(activeInfoHashes, finalCb) {
+    var active = {};
+    console.log("activeInfoHashes", activeInfoHashes);
+    activeInfoHashes.forEach(function(infoHash) {
+	active[bufferToHex(infoHash)] = true;
+    });
+    console.log("active", active);
+
+    var req = indexedDB.open("bitford-store", STORE_DB_VERSION);
+    req.onsuccess = function(event) {
+	var db = event.target.result;
+	if (!db)
+	    return;
+
+	var tx = db.transaction(['chunks'], "readwrite");
+	var totalReclaimed = 0;
+	tx.oncomplete = function() {
+	    finalCb(totalReclaimed);
+	};
+
+	var objectStore = tx.objectStore('chunks');
+	var req = objectStore.openCursor(
+	    IDBKeyRange.lowerBound(""),
+	    'next'
+	);
+	req.onsuccess = function(event) {
+	    var cursor = event.target.result;
+	    if (cursor && cursor.key) {
+		var infoHashHex = cursor.key.slice(0, 40);
+		if (!active.hasOwnProperty(infoHashHex)) {
+		    objectStore.delete(cursor.key);
+		    totalReclaimed += cursor.value.byteLength;
+		}
+		cursor.continue();
+	    }
+	}
+    };
+}

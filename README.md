@@ -23,8 +23,6 @@ BitTorrent protocol 100% in JavaScript.
 
 ### Background
 
-* clean-up unused files
-
 * Tracker event
 * Smarter peer selection
 * Priorities & unchoke buckets
