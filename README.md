@@ -19,13 +19,15 @@ BitTorrent protocol 100% in JavaScript.
 ### UI
 
 * Remove/Save/Play as links when single-file
+* Style
 
 ### Background
+
+* clean-up unused files
 
 * Tracker event
 * Smarter peer selection
 * Priorities & unchoke buckets
-* Session restore + clean-up unused files
 
 ### Unsolved
 

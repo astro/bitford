@@ -28,6 +28,8 @@ function StoreBackend(basename, existingCb) {
 	if (!this.db)
 	    throw "No DB";
 
+	/* Recover pre-existing chunks from last session */
+	this.recover();
 	var onOpenCbs = this.onOpenCbs;
 	delete this.onOpenCbs;
 	onOpenCbs.forEach(function(cb) {
@@ -56,6 +58,26 @@ function StoreBackend(basename, existingCb) {
 }
 
 StoreBackend.prototype = {
+    recover: function() {
+	this.transaction("readonly", function(objectStore) {
+	    var req = objectStore.openCursor(
+		IDBKeyRange.lowerBound(this.key(0)),
+		'next'
+	    );
+	    req.onsuccess = function(event) {
+		var cursor = event.target.result;
+		if (cursor && cursor.key.indexOf(basename + ".") === 0) {
+		    var offset = parseInt(cursor.key.slice(basename.length + 1), 16);
+		    existingCb(offset, cursor.value.byteLength);
+		    cursor.continue();
+		}
+	    };
+	    req.onerror = function(e) {
+		console.error("cursor", e);
+	    };
+	}.bind(this));
+    },
+
     /**
      * mode :: "readonly" or "readwrite"
      */

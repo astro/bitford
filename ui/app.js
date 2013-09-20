@@ -26,8 +26,22 @@ app.controller('MainController', function($scope) {
     });
     $scope.changeShapers = function() {
 	chrome.runtime.getBackgroundPage(function(background) {
-	    background.upShaperRate.rate = parseInt($scope.upShaper, 10) * 1024;
-	    background.downShaperRate.rate = parseInt($scope.downShaper, 10) * 1024;
+	    var changed = false;
+	    var a = function(rate, input) {
+		var value = parseInt(input, 10) * 1024;
+		if (!value)
+		    value = 0;
+		if (value !== rate.rate) {
+		    rate.rate = value;
+		    changed = true;
+		}
+	    };
+	    a(background.upShaperRate, $scope.upShaper);
+	    a(background.downShaperRate, $scope.downShaper);
+	    if (changed) {
+		console.log("saveSessionSettings");
+		background.saveSessionSettings();
+	    }
 	});
     };
 });
