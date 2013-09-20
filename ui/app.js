@@ -102,20 +102,20 @@ app.directive('piecesCanvas', function() {
     };
 });
 
-app.controller('TorrentsController', function($scope) {
+app.controller('TorrentsController', function($scope, $rootScope) {
     $scope.selected = undefined;
     $scope.selectTorrent = function(torrent) {
 	console.log("selected", torrent);
 	$scope.selected = torrent;
     };
-    chrome.runtime.getBackgroundPage(function(background) {
+    var updateFromBackground = function(background) {
 	$scope.torrents = background.torrents;
-    });
+	$rootScope.peerPort = background.peerPort;
+    };
+    chrome.runtime.getBackgroundPage(updateFromBackground);
     setInterval(function() {
 	$scope.$apply(function() {
-	    chrome.runtime.getBackgroundPage(function(background) {
-		$scope.torrents = background.torrents;
-	    });
+	    chrome.runtime.getBackgroundPage(updateFromBackground);
 	});
     }, 500);
 });
