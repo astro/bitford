@@ -18,14 +18,14 @@ BitTorrent protocol 100% in JavaScript.
 
 ### UI
 
-* Remove/Save/Play as links when single-file
-* Style
+* Display file saving progress
 
 ### Background
 
 * Tracker event
 * Smarter peer selection
 * Priorities & unchoke buckets
+* Peer connections should wait for store recovery
 
 ### Unsolved
 

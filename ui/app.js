@@ -117,11 +117,6 @@ app.directive('piecesCanvas', function() {
 });
 
 app.controller('TorrentsController', function($scope, $rootScope) {
-    $scope.selected = undefined;
-    $scope.selectTorrent = function(torrent) {
-	console.log("selected", torrent);
-	$scope.selected = torrent;
-    };
     var updateFromBackground = function(background) {
 	$scope.torrents = background.torrents;
 	$rootScope.peerPort = background.peerPort;
@@ -138,7 +133,6 @@ var MediaSource_ = window.MediaSource ||
     window.WebKitMediaSource;
 
 app.controller('TorrentController', function($scope) {
-    $scope.tab = 'files';
     $scope.round = Math.round;
     $scope.humanSize = humanSize;
     $scope.estimateTime = function(torrent) {
@@ -175,6 +169,13 @@ app.controller('TorrentController', function($scope) {
 	}, 100);
     }
     tick();
+
+    $scope.show = {
+	files: true,
+	trackers: false,
+	peers: false,
+	pieces: false
+    };
 
     $scope.canPlay = function(path) {
 	var mimeType = getMimeType(path);

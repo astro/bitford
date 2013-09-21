@@ -5,119 +5,148 @@ html {
     margin: 0;
     padding: 0;
     font-family: sans-serif;
+    color: #333;
+    background-color: white;
 }
 
 body {
     margin: 0;
-    padding: 0.5em 2em;
+    padding: 0 0 4em;
 }
 
-h1 {
-    font-size: 200%;
-    color: #333;
-    font-weight: 900;
-    font-style: italic;
-    margin: 0.2em 0;
+button {
+    font-size: 95%;
+    font-weight: bold;
+    color: #afe9af;
+    background-color: #2ca02c;
+    border: none;
+    border-radius: 3px;
+    margin: 1px 2px;
+    padding: 0.15em 0.3em;
+}
+button:hover {
+    color: white;
+    background-color: #37c837;
+    cursor: pointer;
+}
+
+header {
+    text-align: center;
     padding: 0;
+}
+header img, header h1 {
+    display: inline-block;
+}
+header img {
+    height: 6em;
+}
+header h1 {
+    font-size: 500%;
+    margin: 0;
+    vertical-align: text-bottom;
+    color: #2ca02c;
+}
+
+#settings {
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    background-color: white;
+    text-align: center;
+    padding: 0 0 0.2em;
+}
+#settings .line p {
+    display: inline-block;
+    margin: 0 1em;
 }
 
 .torrent {
-    margin: 1em 0.5em;
-    padding: 0;
+    margin: 1em 0;
+    padding: 1em 0.5em;
+    border-top: dotted 1px #ccc;
 }
-
 .torrent h2 {
-    font-weight: normal;
-    font-size: 100%;
-    text-decoration: underline;
-    color: #070;
-    cursor: pointer;
-    display: inline;
-}
-.torrent .size {
-    display: inline;
-    color: #777;
-}
-.torrent .size:after {
-    display: block;
-}
-
-.torrent button {
-    margin: 2px 4px 2px 0;
-}
-
-.torrent .tabs {
-    margin: 0.5em 0 -1px 1em;
-    padding: 0;
-    z-index: 1;
-}
-.torrent .tabs li {
-    list-style-type: none;
-    display: inline-block;
-    background-color: white;
-    border: 1px solid #333;
-    border-radius: 2px 2px 0 0;
-    padding: 2px 4px;
-}
-.torrent .tabs li:hover {
-    background-color: #77f;
-}
-.torrent .tabs li.active {
-    border-bottom: 1px solid white;
-}
-.torrent .content {
-    border: 1px solid #333;
-    border-radius: 2px;
-    min-height: 16em;
-    overflow-y: auto;
+    font-size: 120%;
+    font-weight: bold;
     margin: 0;
-    padding: 0.5em 1em;
+}
+.torrent > .size {
+    float: right;
+    font-size: 90%;
+    color: #777;
+    margin: 0;
+}
+.torrent .remove {
+    float: right;
+}
+.torrent .stats {
+    font-size: 90%;
+    color: #777;
+    margin: 0;
+}
+
+.torrent h3 {
+    margin: 0.5em 0 0.2em;
+    cursor: pointer;
+    color: #2ca02c;
+}
+.torrent h3:hover, .torrent .collapsed h3:hover {
+    color: black;
+}
+.torrent .collapsed {
+    display: inline;
+}
+.torrent .collapsed h3 {
+    display: inline;
+    padding: 0 2em 0 0;
+    color: #37c837;
+    font-weight: normal;
+}
+.torrent .collapsed h3:before {
+    content: 'Show ';
 }
 
 .torrent .files {
     list-style-type: none;
-    margin: 0.5em;
+    margin: 0;
     padding: 0;
 }
-.torrent h3 {
-    color: #007;
-    font-size: 100%;
-    font-weight: normal;
+.torrent .files li {
+    text-align: right;
+}
+.torrent .files li:hover {
+    background-color: #f0f7f0;
+}
+.torrent .files h4, .torrent .files .size, .torrent .files button {
+    display: inline-block;
     margin: 0;
+}
+.torrent .files h4 {
+    float: left;
+}
+.torrent .files .size {
+    color: #777;
+    padding-right: 2em;
+}
+.torrent .video-container {
+    display: block;
+    width: 100%;
+    background-color: black;
+    padding: 0;
+    margin: 4px 0 4px;
+    text-align: center;
+}
+.torrent .video-container video {
+    width: 100%;
 }
 
-.pieces-container {
-    display: block;
-}
-.pieces-container .pieces-scroll {
-    max-width: 100%;
-    overflow-x: auto;
-    margin: 0.5em 0 0 0;
-}
-.pieces-container canvas.pieces {
-    display: inline-block;
-    margin: 0;
-    border: 1px solid #333;
-}
-.pieces-container .pieces-legend {
-    text-align: center;
-    font-size: 80%;
-    color: #333;
-    margin: 0 0 1em;
-}
-.pieces-container .pieces-legend span {
-    display: inline-block;
-    width: 0.5em;
-    height: 0.5em;
-    line-height: 0.5em;
-    vertical-align: baseline;
-    border: 1px solid #333;
-    margin: 0 0.1em 0 0.7em;
-}
 .torrent .peers {
     border-spacing: 0;
     margin: 0 auto;
-    width: 90%;
+    display: block;
+    width: 100%;
+    height: 10em;
+    overflow: auto;
 }
 .torrent .peers thead tr {
     background-color: #333;
@@ -134,13 +163,32 @@ h1 {
     background-color: #ddd;
 }
 
-.torrent .video-container {
-    margin: 0 auto;
+.torrent .pieces-container {
+    display: block;
 }
-.torrent video {
-    margin: 0.5em 0;
-    padding: 0.8em 1em;
-    background-color: black;
-    border-radius: 1em;
-    max-width: 70%;
+.torrent .pieces-container .pieces-scroll {
+    border: 1px solid #333;
+    max-width: 100%;
+    margin: 0 auto;
+    padding: 0;
+    overflow-x: auto;
+    background-color: #ccc;
+}
+.torrent .pieces-container .pieces-scroll canvas {
+    display: inline;
+}
+.torrent .pieces-container p {
+    text-align: center;
+    font-size: 90%;
+    color: #333;
+    margin: 0;
+}
+.torrent .pieces-container .pieces-legend span {
+    display: inline-block;
+    width: 0.5em;
+    height: 0.5em;
+    line-height: 0.5em;
+    vertical-align: baseline;
+    border: 1px solid #333;
+    margin: 0 0.1em 0 0.7em;
 }
