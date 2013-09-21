@@ -22,6 +22,8 @@ BitTorrent protocol 100% in JavaScript.
 
 ### Background
 
+* store-backend: buffer chunks & concat data before write
+* store-backend: unify open bitford-store
 * Tracker event
 * Smarter peer selection
 * Priorities & unchoke buckets

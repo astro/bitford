@@ -2,7 +2,7 @@ window.indexedDB = window.indexedDB || window.mozIndexedDB || window.webkitIndex
 window.IDBTransaction = window.IDBTransaction || window.webkitIDBTransaction || window.msIDBTransaction;
 window.IDBKeyRange = window.IDBKeyRange || window.webkitIDBKeyRange || window.msIDBKeyRange;
 
-var STORE_DB_VERSION = 1;
+var STORE_DB_VERSION = 2;
 
 /**
  * Puts all the data in multiple files seperated by offsets, to
@@ -168,6 +168,10 @@ function reclaimStorage(activeInfoHashes, finalCb) {
     console.log("active", active);
 
     var req = indexedDB.open("bitford-store", STORE_DB_VERSION);
+    req.onupgradeneeded = function(event) {
+	var db = event.target.result;
+	var objectStore = db.createObjectStore('chunks');
+    };
     req.onsuccess = function(event) {
 	var db = event.target.result;
 	if (!db)
