@@ -2,7 +2,7 @@
     "manifest_version": 2,
 
     "name": "Bitford",
-    "description": "BitTorrent client",
+    "description": "BitTorrent client for Chrome that can stream videos while they're being downloaded",
     "version": "0.0",
 
     "permissions": [
