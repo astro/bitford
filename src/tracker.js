@@ -237,7 +237,7 @@ Tracker.prototype = {
 };
 
 function encodeQuery(v) {
-    if (v.__proto__.constructor == Uint8Array) {
+    if (v && v.__proto__.constructor == Uint8Array) {
 	var r = "";
 	for(var i = 0; i < v.length; i++) {
 	    r += "%";
