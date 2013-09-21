@@ -94,6 +94,11 @@ header h1 {
 .torrent h3:hover, .torrent .collapsed h3:hover {
     color: black;
 }
+.torrent h3:before {
+    content: '▼ ';
+    font-family: monospace;
+    font-size: 130%;
+}
 .torrent .collapsed {
     display: inline;
 }
@@ -101,10 +106,9 @@ header h1 {
     display: inline;
     padding: 0 2em 0 0;
     color: #37c837;
-    font-weight: normal;
 }
 .torrent .collapsed h3:before {
-    content: 'Show ';
+    content: '▶ ';
 }
 
 .torrent .files {
