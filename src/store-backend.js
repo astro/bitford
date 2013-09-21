@@ -40,9 +40,12 @@ function StoreBackend(basename, existingCb) {
 	});
     }.bind(this);
 
+    this.writeQueue = [];
+
     this.remove = function() {
 	this.transaction("readwrite", function(objectStore) {
-	    var req = objectStore.openCursor(
+	    var openKeyCursor = (objectStore.openKeyCursor || objectStore.openCursor).bind(objectStore);
+	    var req = openKeyCursor(
 		IDBKeyRange.lowerBound(this.key(0)),
 		'next'
 	    );
@@ -112,10 +115,25 @@ StoreBackend.prototype = {
 		if (data) {
 		    cb(req.result);
 		} else {
-		    /* TODO: reads for pieces are not neccessarily
-		     * aligned with our CHUNK_LENGTH */
-		    console.error("store readFrom offset too low", offset);
-		    cb();
+		    req = objectStore.openCursor(
+			IDBKeyRange.upperBound(this.key(offset)),
+			'prev'
+		    );
+		    req.onsuccess = function(event) {
+			var cursor = event.target.result;
+			if (cursor && cursor.key && cursor.value) {
+			    var cursorOffset = parseInt(cursor.key.slice(41), 16);
+			    console.log("store index for", offset, "at", cursorOffset, "..", cursorOffset + cursor.value.byteLength);
+			    cb(cursor.value.slice(offset - cursorOffset));
+			} else {
+			    console.error("store index read nothing for", offset);
+			    cb();
+			}
+		    };
+		    req.onerror = function(e) {
+			console.error("store index read", offset, e);
+			cb();
+		    };
 		}
 	    }.bind(this);
 	    req.onerror = function(e) {
@@ -149,12 +167,80 @@ StoreBackend.prototype = {
 	readFrom(offset, length);
     },
 
+    writeQueueThreshold: 16,
+
     write: function(offset, data, cb) {
-	data.readAsArrayBuffer(function(buf) {
-	    this.transaction("readwrite", function(objectStore) {
-		objectStore.put(buf, this.key(offset));
-	    }.bind(this), cb);
-	}.bind(this));
+	this.writeQueue.push({
+	    offset: offset,
+	    data: data,
+	    cb: cb
+	});
+	this.canFlushWrites();
+    },
+
+    canFlushWrites: function() {
+	if (this.writeQueue.length >= this.writeQueueThreshold) {
+	    if (this.writeQueueTimeout) {
+		clearTimeout(this.writeQueueTimeout);
+		this.writeQueueTimeout = null;
+	    }
+	    this.flushWrites();
+	} else if (!this.writeQueueTimeout) {
+	    this.writeQueueTimeout = setTimeout(function() {
+		this.writeQueueTimeout = null;
+		this.flushWrites();
+	    }.bind(this), 500);
+	}
+    },
+
+    flushWrites: function() {
+	var q = this.writeQueue.shift();
+	if (!q)
+	    return;
+	var offset = q.offset + q.data.length;
+	var bufs = q.data.getBuffers();
+	var cbs = [q.cb];
+
+	var merging;
+	do {
+	    merging = false;
+	    for(var i = 0; i < this.writeQueue.length; i++) {
+		var q1 = this.writeQueue[i];
+		if (q1.offset === offset) {
+		    merging = true;
+		    offset += q1.data.length;
+		    bufs.push.apply(bufs, q1.data.getBuffers());
+		    cbs.push(q1.cb);
+		    this.writeQueue.splice(i, 1);
+		    i--;
+		}
+	    }
+	} while(merging);
+
+	var finalCb = function() {
+	    cbs.forEach(function(cb) {
+		cb();
+	    });
+	    // TODO: pass off to sha1worker
+	    this.canFlushWrites();
+	}.bind(this);
+
+	if (bufs.length < 2) {
+	    this.doWrite(q.offset, bufs[0], finalCb);
+	} else {
+	    var reader = new FileReader();
+	    reader.onload = function() {
+		console.log("Coalesced", bufs.length, "bufs to:", q.offset, "..", q.offset + reader.result.byteLength, " bytes");
+		this.doWrite(q.offset, reader.result, finalCb);
+	    }.bind(this);
+	    reader.readAsArrayBuffer(new Blob(bufs));
+	}
+    },
+
+    doWrite: function(offset, buf, cb) {
+	this.transaction("readwrite", function(objectStore) {
+	    objectStore.put(buf, this.key(offset));
+	}.bind(this), cb);
     }
 };
 
@@ -184,7 +270,8 @@ function reclaimStorage(activeInfoHashes, finalCb) {
 	};
 
 	var objectStore = tx.objectStore('chunks');
-	var req = objectStore.openCursor(
+	var openKeyCursor = (objectStore.openKeyCursor || objectStore.openCursor).bind(objectStore);
+	var req = openKeyCursor(
 	    IDBKeyRange.lowerBound(""),
 	    'next'
 	);
@@ -194,7 +281,7 @@ function reclaimStorage(activeInfoHashes, finalCb) {
 		var infoHashHex = cursor.key.slice(0, 40);
 		if (!active.hasOwnProperty(infoHashHex)) {
 		    objectStore.delete(cursor.key);
-		    totalReclaimed += cursor.value.byteLength;
+		    totalReclaimed += 1;
 		}
 		cursor.continue();
 	    }

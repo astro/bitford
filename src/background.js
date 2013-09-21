@@ -149,7 +149,7 @@ openSession(function(db) {
 	reclaimStorage(torrents.map(function(torrent) {
 	    return torrent.infoHash;
 	}), function(totalReclaimed) {
-	    console.log("Reclaimed", totalReclaimed, "bytes of stale data");
+	    console.log("Reclaimed", totalReclaimed, "chunks of stale data");
 	});
     });
 });
