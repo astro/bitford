@@ -130,14 +130,16 @@ StoreBackend.prototype = {
 
 	var readFrom = function(offset, remain) {
 	    if (remain < 1) {
-		if (remain < 0)
-		    result.take(-result);
 		return cb(result);
 	    }
 
 	    this.readFrom(offset, function(data) {
 		var len = data ? data.byteLength : 0;
 		if (len > 0) {
+		    if (len > remain) {
+			data = data.slice(0, remain);
+			len = data.byteLength;
+		    }
 		    result.append(data);
 		    readFrom(offset + len, remain - len);
 		} else {
