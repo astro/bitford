@@ -42,7 +42,7 @@ function Peer(torrent, info) {
 }
 
 Peer.prototype = {
-    maxProcessingThreshold: 128,
+    maxProcessingThreshold: 2,
 
     end: function() {
 	if (this.sock)

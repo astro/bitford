@@ -376,13 +376,8 @@ StorePiece.prototype = {
 		(chunk.state === 'missing' || chunk.state === 'requested')) {
 		
 		chunk.state = 'received';
-		this.store.backend.write(
-		    this.pieceNumber * this.store.pieceLength + chunk.offset,
-		    data, function() {
-			chunk.state = 'written';
-
-			this.canHash(offset, data, cb);
-		    }.bind(this));
+		chunk.data = data;
+		this.canHash(offset, data, cb);
 		return;
 	    }
 	    else if (chunk.offset > offset)
@@ -405,7 +400,7 @@ StorePiece.prototype = {
 	    if (pendingUpdates < 1 && cb)
 		cb();
 	}
-	data.buffers.forEach(function(buf) {
+	data.getBuffers().forEach(function(buf) {
 	    this.sha1pos += buf.byteLength;
 	    this.store.sha1Worker.update(this.pieceNumber, buf, onUpdated);
 	    pendingUpdates++;
@@ -434,7 +429,7 @@ StorePiece.prototype = {
     canContinueHashing: function() {
 	for(var i = 0;
 	    i < this.chunks.length &&
-	    (this.chunks[i].state == 'written' || this.chunks[i].state == 'valid') &&
+	    (this.chunks[i].state == 'received' || this.chunks[i].state == 'valid') &&
 	    this.chunks[i].offset <= this.sha1pos;
 	    i++) {
 	    // console.log("canContinueHashing", this.sha1pos, i, this.chunks, this.chunks[i].offset + this.chunks[i].length > this.sha1pos);
@@ -447,7 +442,7 @@ StorePiece.prototype = {
     continueHashing: function(cb) {
 	for(var i = 0;
 	    i < this.chunks.length &&
-	    (this.chunks[i].state == 'written' || this.chunks[i].state == 'valid') &&
+	    (this.chunks[i].state == 'received' || this.chunks[i].state == 'valid') &&
 	    this.chunks[i].offset <= this.sha1pos;
 	    i++) {
 
@@ -456,16 +451,14 @@ StorePiece.prototype = {
 	    if (start >= 0 && start < chunk.length) {
 		var len = chunk.length - start;
 		var offset = chunk.offset + start;
-		this.read(offset, len, function(data) {
-		    if (data.length > 0) {
-			this.canHash(offset, data, cb);
-		    } else {
-			console.warn("cannotHash", this.pieceNumber, ":", this.chunks[i]);
-			chunk.state = 'missing';
-			this.store.onPieceMissing(this.pieceNumber);
-			cb();
-		    }
-		}.bind(this));
+		if (chunk.data && chunk.data.length > 0) {
+		    this.canHash(offset, chunk.data, cb);
+		} else {
+		    console.warn("cannotHash", this.pieceNumber, ":", this.chunks[i]);
+		    chunk.state = 'missing';
+		    this.store.onPieceMissing(this.pieceNumber);
+		    cb();
+		}
 		return;
 	    } else if (start < 0) {
 		console.log("cannot Hash", this.chunks, this.sha1pos);
@@ -506,6 +499,9 @@ StorePiece.prototype = {
 		    console.error("onValidCb", this.pieceNumber, e);
 		}
 	    }.bind(this));
+	
+	    /* Drop memory storage just after onValidCbs have been run */
+	    this.writeToBackend();
 	}
     },
 
@@ -517,6 +513,49 @@ StorePiece.prototype = {
 	    this.onValidCbs.push(cb);
 	    this.store.onPieceMissing(this.pieceNumber);
 	}
+    },
+
+    /**
+     * Persist when piece has gone valid
+     **/
+    writeToBackend: function() {
+	var storeChunkLength = Math.min(512 * 1024, this.store.pieceLength);
+	var i;
+	
+	/* Find first data */
+	for(i = 0; i < this.chunks.length && !this.chunks[i].data; i++) {
+	}
+	if (i >= this.chunks.length) {
+	    /* All done */
+	    console.log("Piece", this.pieceNumber, "seems fully persisted");
+	    return;
+	}
+	/* i now points to the first chunk that has data */
+
+	var offset = this.chunks[i].offset;
+	var length = this.chunks[i].data.length;
+	var buffers = this.chunks[i].data.getBuffers();
+	delete this.chunks[i].data;
+	/* Collect succeeding chunks until storeChunkLength */
+	for(i++; length < storeChunkLength && i < this.chunks.length; i++) {
+	    length += this.chunks[i].data.length;
+	    buffers = buffers.concat(this.chunks[i].data.getBuffers());
+	    delete this.chunks[i].data;
+	}
+	/* Concatenate */
+	var reader = new FileReader();
+	reader.onload = function() {
+	    try {
+		console.log("Write to", this.pieceNumber, "+", offset, ":", reader.result.byteLength, "/", length, "bytes");
+		this.store.backend.write(
+		    this.pieceNumber * this.store.pieceLength + offset,
+		    reader.result, this.writeToBackend.bind(this));
+	    } catch (e) {
+		console.error("writeToBackend", e);
+		this.writeToBackend();
+	    }
+	}.bind(this);
+	reader.readAsArrayBuffer(new Blob(buffers));
     }
 };
 

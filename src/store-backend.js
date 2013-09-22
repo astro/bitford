@@ -168,11 +168,14 @@ StoreBackend.prototype = {
     },
 
     write: function(offset, data, cb) {
-	data.readAsArrayBuffer(function(buf) {
+	if (typeof data.readAsArrayBuffer === 'function')
+	    data.readAsArrayBuffer(function(buf) {
+		this.write(offset, buf, cb);
+	    }.bind(this));
+	else
 	    this.transaction("readwrite", function(objectStore) {
-		objectStore.put(buf, this.key(offset));
+		objectStore.put(data, this.key(offset));
 	    }.bind(this), cb);
-	}.bind(this));
     }
 };
 
