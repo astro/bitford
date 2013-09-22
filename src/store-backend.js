@@ -9,6 +9,7 @@ var STORE_DB_VERSION = 2;
  * alleviate lack of sparse files.
  */
 function StoreBackend(basename, existingCb) {
+    this.basename = basename;
     this.key = function(offset) {
 	offset = offset.toString(16);
 	while(offset.length < 16)
@@ -32,12 +33,12 @@ function StoreBackend(basename, existingCb) {
 
 	/* Recover pre-existing chunks from last session */
 	this.existingCb = existingCb;
-	this.recover();
 	var onOpenCbs = this.onOpenCbs;
 	delete this.onOpenCbs;
 	onOpenCbs.forEach(function(cb) {
 	    cb();
 	});
+	this.recover();
     }.bind(this);
 
     this.remove = function() {
@@ -61,23 +62,38 @@ function StoreBackend(basename, existingCb) {
 }
 
 StoreBackend.prototype = {
-    recover: function() {
+    recover: function(start) {
+	if (typeof start !== 'number')
+	    start = 0;
+	console.log("recover", start);
+
+	var offset, data;
 	this.transaction("readonly", function(objectStore) {
 	    var req = objectStore.openCursor(
-		IDBKeyRange.lowerBound(this.key(0)),
+		IDBKeyRange.lowerBound(this.key(start)),
 		'next'
 	    );
 	    req.onsuccess = function(event) {
 		var cursor = event.target.result;
 		if (cursor && cursor.key.indexOf(this.basename + ".") === 0) {
-		    var offset = parseInt(cursor.key.slice(this.basename.length + 1), 16);
-		    this.existingCb(offset, cursor.value.byteLength);
-		    cursor.continue();
+		    offset = parseInt(cursor.key.slice(this.basename.length + 1), 16);
+		    data = cursor.value;
 		}
 	    }.bind(this);
 	    req.onerror = function(e) {
 		console.error("cursor", e);
 	    };
+	}.bind(this), function() {
+	    console.log("recover", start, "finalCb");
+	    if (typeof offset === 'number') {
+		if (data) {
+		    this.existingCb(offset, data, function() {
+			this.recover(offset + 1);
+		    }.bind(this));
+		} else {
+		    this.recover(offset + 1);
+		}
+	    }
 	}.bind(this));
     },
 

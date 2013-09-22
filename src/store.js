@@ -49,7 +49,20 @@ function Store(torrent, pieceHashes, pieceLength) {
 }
 Store.prototype = {
     /* Called back by StoreBackend() when initializing */
-    onExisting: function(offset, length) {
+    onExisting: function(offset, data, cb) {
+	console.log("existing", offset);
+	var pending = 1;
+	var done = function() {
+	    pending--;
+	    if (pending < 1) {
+		console.log("existing", offset, "done", pending);
+		this.mayHash();
+		if (cb)
+		    cb();
+	    }
+	}.bind(this);
+
+	var length = data.byteLength;
 	for(var i = Math.floor(offset / this.pieceLength);
 	    i < this.pieces.length && i < (offset + length) / this.pieceLength;
 	    i++) {
@@ -59,11 +72,15 @@ Store.prototype = {
 	    for(var j = 0; j < piece.chunks.length; j++) {
 		var chunk = piece.chunks[j];
 		if (pieceOffset + chunk.offset >= offset &&
-		    pieceOffset + chunk.offset + chunk.length <= offset + length)
+		    pieceOffset + chunk.offset + chunk.length <= offset + length) {
+
 		    chunk.state = 'written';
+		}
 	    }
+	    pending++;
+	    piece.canHash(offset - pieceOffset, new BufferList([data]), done);
 	}
-	this.mayHash();
+	done();
     },
 
     remove: function() {
