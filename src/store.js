@@ -250,7 +250,7 @@ Store.prototype = {
     },
 
     nextToHash: function() {
-	function lookForPiece(pieces) {
+	var lookForPiece = function(pieces) {
 	    for(var i = 0; i < pieces.length; i++) {
 		var piece = pieces[i];
 		if (piece.canContinueHashing())
