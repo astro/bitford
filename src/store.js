@@ -415,12 +415,18 @@ StorePiece.prototype = {
     },
 
     canContinueHashing: function() {
+	if (this.sha1pos === 0 &&
+	    this.chunks[0].state !== 'missing') {
+	    console.log("state", this.pieceNumber, ":", this.chunks[0].state);
+	}
+
 	for(var i = 0;
 	    i < this.chunks.length &&
 	    (this.chunks[i].state == 'written' || this.chunks[i].state == 'valid') &&
 	    this.chunks[i].offset <= this.sha1pos;
 	    i++) {
-	    // console.log("canContinueHashing", this.sha1pos, i, this.chunks, this.chunks[i].offset + this.chunks[i].length > this.sha1pos);
+	    
+	    // console.log(this.pieceNumber, "canContinueHashing", this.sha1pos, i, this.chunks[i].offset + this.chunks[i].length > this.sha1pos);
 	    if (this.chunks[i].offset + this.chunks[i].length > this.sha1pos)
 		return true;
 	}
@@ -441,9 +447,10 @@ StorePiece.prototype = {
 		var offset = chunk.offset + start;
 		this.read(offset, len, function(data) {
 		    if (data.length > 0) {
+			// console.log("read, canHash", offset, this.sha1pos, data);
 			this.canHash(offset, data, cb);
 		    } else {
-			console.warn("cannotHash", this.pieceNumber, ":", this.chunks[i]);
+			console.warn("cannotHash", this.pieceNumber, ":", this.chunks[i], data);
 			chunk.state = 'missing';
 			this.store.onPieceMissing(this.pieceNumber);
 			cb();

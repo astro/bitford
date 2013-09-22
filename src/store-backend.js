@@ -232,7 +232,7 @@ StoreBackend.prototype = {
 	} else {
 	    var reader = new FileReader();
 	    reader.onload = function() {
-		console.log("Coalesced", bufs.length, "bufs to:", q.offset, "..", q.offset + reader.result.byteLength, " bytes");
+		console.log("Coalesced", bufs.length, "bufs to:", q.offset, "+", reader.result.byteLength, " bytes");
 		this.doWrite(q.offset, reader.result, finalCb);
 	    }.bind(this);
 	    reader.readAsArrayBuffer(new Blob(bufs));
