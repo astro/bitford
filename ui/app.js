@@ -72,10 +72,7 @@ app.directive('piecesCanvas', function() {
 		for(var x = 0; x < pieces.length; x++) {
 		    var x1 = Math.floor(canvas.width * x / pieces.length);
 		    var x2 = Math.floor(canvas.width * (x + 1) / pieces.length);
-		    if (pieces[x].valid) {
-			ctx.fillStyle = "#3f3";
-			ctx.fillRect(x1, 0, x2, canvas.height);
-		    } else if (!pieces[x].chunks.some(function(chunk) {
+		    if (!pieces[x].chunks.some(function(chunk) {
 							  return chunk.state !== 'missing';
 						      })) {
 			ctx.fillStyle = "#ccc";
@@ -89,16 +86,16 @@ app.directive('piecesCanvas', function() {
 				    ctx.fillStyle = "#ccc";
 				    break;
 				case 'requested':
-				    ctx.fillStyle = "red";
+				    ctx.fillStyle = "#f77";
 				    break;
 				case 'received':
-				    ctx.fillStyle = "yellow";
-				    break;
-				case 'written':
-				    ctx.fillStyle = "blue";
+				    ctx.fillStyle = "#ff7";
 				    break;
 				case 'valid':
-				    ctx.fillStyle = "#0c0";
+				    ctx.fillStyle = pieces[x].valid ? "#77f" : "#33f";
+				    break;
+				case 'written':
+				    ctx.fillStyle = "#7f7";
 				    break;
 				default:
 				    ctx.fillStyle = "black";

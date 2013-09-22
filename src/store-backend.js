@@ -128,10 +128,25 @@ StoreBackend.prototype = {
 		if (data) {
 		    cb(req.result);
 		} else {
-		    /* TODO: reads for pieces are not neccessarily
-		     * aligned with our CHUNK_LENGTH */
-		    console.error("store readFrom offset too low", offset);
-		    cb();
+		    req = objectStore.openCursor(
+			IDBKeyRange.upperBound(this.key(offset)),
+			'prev'
+		    );
+		    req.onsuccess = function(event) {
+			var cursor = event.target.result;
+                        if (cursor && cursor.key && cursor.value) {
+                            var cursorOffset = parseInt(cursor.key.slice(41), 16);
+                            console.log("store index for", offset, "at", cursorOffset, "..", cursorOffset + cursor.value.byteLength);
+                            cb(cursor.value.slice(offset - cursorOffset));
+			} else {
+			    console.error("store readFrom offset too low", offset);
+			    cb();
+			}
+		    };
+                    req.onerror = function(e) {
+                        console.error("store index read", offset, e);
+                        cb();
+                    };
 		}
 	    }.bind(this);
 	    req.onerror = function(e) {

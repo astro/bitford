@@ -221,13 +221,18 @@ Store.prototype = {
 	if (found) {
 	    piece.addOnValid(function() {
 		var chunkOffset = piece.pieceNumber * this.pieceLength + chunk.offset;
-		this.backend.readFrom(chunkOffset, function(data) {
-		    if (data.byteLength > chunk.length)
-			data = data.slice(0, chunk.length);
+		if (chunk.data) {
+		    var data = chunk.data;
 		    if (chunkOffset < offset)
 			data = data.slice(offset - chunkOffset);
-		    cb(data);
-		});
+		    data.readAsArrayBuffer(cb);
+		} else {
+		    this.backend.readFrom(chunkOffset, function(data) {
+			if (chunkOffset < offset)
+			    data = data.slice(offset - chunkOffset);
+			cb(data);
+		    });
+		}
 	    }.bind(this));
 	    
 	    /* Interest for readahead */
@@ -454,10 +459,19 @@ StorePiece.prototype = {
 		if (chunk.data && chunk.data.length > 0) {
 		    this.canHash(offset, chunk.data, cb);
 		} else {
-		    console.warn("cannotHash", this.pieceNumber, ":", this.chunks[i]);
-		    chunk.state = 'missing';
-		    this.store.onPieceMissing(this.pieceNumber);
-		    cb();
+		    /* This path will only be taken if recovery found
+		     * stored data for a not yet valid chunk
+		     */
+		    this.read(offset, len, function(data) {
+			if (data.length > 0) {
+			    this.canHash(offset, data, cb);
+			} else {
+			    console.warn("cannotHash", this.pieceNumber, ":", this.chunks[i]);
+			    chunk.state = 'missing';
+			    this.store.onPieceMissing(this.pieceNumber);
+			    cb();
+			}
+		    }.bind(this));
 		}
 		return;
 	    } else if (start < 0) {
@@ -496,7 +510,7 @@ StorePiece.prototype = {
 		try {
 		    cb();
 		} catch (e) {
-		    console.error("onValidCb", this.pieceNumber, e);
+		    console.error("onValidCb", this.pieceNumber, e.stack);
 		}
 	    }.bind(this));
 	
@@ -534,13 +548,11 @@ StorePiece.prototype = {
 
 	var offset = this.chunks[i].offset;
 	var length = this.chunks[i].data.length;
-	var buffers = this.chunks[i].data.getBuffers();
-	delete this.chunks[i].data;
+	var chunks = [this.chunks[i]];
 	/* Collect succeeding chunks until storeChunkLength */
 	for(i++; length < storeChunkLength && i < this.chunks.length; i++) {
 	    length += this.chunks[i].data.length;
-	    buffers = buffers.concat(this.chunks[i].data.getBuffers());
-	    delete this.chunks[i].data;
+	    chunks.push(this.chunks[i]);
 	}
 	/* Concatenate */
 	var reader = new FileReader();
@@ -549,12 +561,24 @@ StorePiece.prototype = {
 		console.log("Write to", this.pieceNumber, "+", offset, ":", reader.result.byteLength, "/", length, "bytes");
 		this.store.backend.write(
 		    this.pieceNumber * this.store.pieceLength + offset,
-		    reader.result, this.writeToBackend.bind(this));
+		    reader.result, function() {
+			chunks.forEach(function(chunk) {
+			    chunk.state = 'written';
+			    /* free */
+			    delete chunk.data;
+			});
+			/* loop (because we write only up to storeChunkLength */
+			this.writeToBackend();
+		    }.bind(this));
 	    } catch (e) {
 		console.error("writeToBackend", e);
 		this.writeToBackend();
 	    }
 	}.bind(this);
+	var buffers = [].concat.apply([], chunks.map(function(chunk) {
+	    return chunk.data.getBuffers();
+	}));
+	// console.log("buffers", length, ":", buffers);
 	reader.readAsArrayBuffer(new Blob(buffers));
     }
 };
