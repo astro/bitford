@@ -65,7 +65,6 @@ StoreBackend.prototype = {
     recover: function(start) {
 	if (typeof start !== 'number')
 	    start = 0;
-	console.log("recover", start);
 
 	var offset, data;
 	this.transaction("readonly", function(objectStore) {
@@ -84,7 +83,6 @@ StoreBackend.prototype = {
 		console.error("cursor", e);
 	    };
 	}.bind(this), function() {
-	    console.log("recover", start, "finalCb");
 	    if (typeof offset === 'number') {
 		if (data) {
 		    this.existingCb(offset, data, function() {
@@ -201,7 +199,6 @@ function reclaimStorage(activeInfoHashes, finalCb) {
     activeInfoHashes.forEach(function(infoHash) {
 	active[bufferToHex(infoHash)] = true;
     });
-    console.log("active", active);
 
     var req = indexedDB.open("bitford-store", STORE_DB_VERSION);
     req.onupgradeneeded = function(event) {

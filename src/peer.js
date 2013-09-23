@@ -453,7 +453,7 @@ Peer.prototype = {
 	    }
 	    if (maxReqs > 2 && maxReqs >= 2 * this.requestedChunks.length) {
 		var peer = this.torrent.peers[maxReqsIdx];
-		console.log("peer", peer.ip, "has max reqs:", maxReqs);
+		// console.log("peer", peer.ip, "has max reqs:", maxReqs);
 		chunk = peer.requestedChunks.pop();
 		peer.sendCancel(chunk.piece, chunk.offset, chunk.length);
 		if (chunk && this.has(chunk.piece)) {

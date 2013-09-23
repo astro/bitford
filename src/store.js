@@ -50,7 +50,6 @@ function Store(torrent, pieceHashes, pieceLength) {
 Store.prototype = {
     /* Called back by StoreBackend() when initializing */
     onExisting: function(offset, data, cb) {
-	console.log("existing", offset);
 	var pending = 1;
 	var done = function() {
 	    pending--;
