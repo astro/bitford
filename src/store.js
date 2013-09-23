@@ -40,9 +40,9 @@ function Store(torrent, pieceHashes, pieceLength) {
     this.fileEntries = {};
 
     /* Lower bound for interestingPieces */
-    this.piecesReadahead = 2;
+    this.interestingPiecesThreshold = 2;
     /* Upper bound for interestingPieces */
-    this.interestingPiecesThreshold = 2 * this.piecesReadahead;
+    this.piecesReadahead = 2 * this.interestingPiecesThreshold;
     this.interestingPieces = [];
 
     this.sha1Worker = new SHA1Worker();
@@ -124,12 +124,12 @@ Store.prototype = {
 	/* these are proportional to torrent rate,
 	   to have piece stealing in time
 	*/
-	var readaheadTime = 5000;
+	var readaheadTime = 2000;
 	var readaheadBytes = readaheadTime * this.torrent.downRate.getRate() / 1000;
-	this.piecesReadahead = Math.max(2, Math.ceil(readaheadBytes / this.pieceLength));
-	this.interestingPiecesThreshold = 2 * this.piecesReadahead;
+	this.interestingPiecesThreshold = Math.max(2, Math.ceil(readaheadBytes / this.pieceLength));
+	this.piecesReadahead = 2 * this.interestingPiecesThreshold;
 
-	if (!forceOne && this.interestingPieces.length >= this.piecesReadahead)
+	if (!forceOne && this.interestingPieces.length >= this.interestingPiecesThreshold)
 	    /* Don't even start working unless neccessary */
 	    return;
 
@@ -155,7 +155,7 @@ Store.prototype = {
 	    else
 		return r2 - r1;
 	});
-	for(i = 0; (forceOne || this.interestingPieces.length < this.interestingPiecesThreshold) && i < idxs.length; i++) {
+	for(i = 0; (forceOne || this.interestingPieces.length < this.piecesReadahead) && i < idxs.length; i++) {
 	    var idx = idxs[i];
 	    piece = this.pieces[idx];
 	    var alreadyPresent = this.interestingPieces.some(function(presentPiece) {

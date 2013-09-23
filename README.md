@@ -23,7 +23,7 @@ BitTorrent protocol 100% in JavaScript.
 ### Background
 
 * Couple piece receiving to chunk store with background sha1 hashing
-* store-backend: buffer chunks & concat data before write
+* Fix recovery
 * store-backend: unify open bitford-store
 * Tracker event
 * Smarter peer selection
