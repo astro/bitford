@@ -123,7 +123,7 @@ Store.prototype = {
 	/* these are proportional to torrent rate,
 	   to have piece stealing in time
 	*/
-	var readaheadTime = 2000;
+	var readaheadTime = 3000;
 	var readaheadBytes = readaheadTime * this.torrent.downRate.getRate() / 1000;
 	this.interestingPiecesThreshold = Math.max(2, Math.ceil(readaheadBytes / this.pieceLength));
 	this.piecesReadahead = 2 * this.interestingPiecesThreshold;
@@ -262,9 +262,8 @@ Store.prototype = {
 	    }
 
 	    piece.write(offset, data, function() {
-		cb();
-		this.mayHash();
-	    }.bind(this));
+		piece.continueHashing(cb);
+	    });
 	    this.bytesLeft = null;
 	} else
 	    cb();
@@ -282,9 +281,9 @@ Store.prototype = {
 	    lookForPiece(this.pieces);
     },
 
-    mayHash: function() {
+    mayHash: function(cb) {
 	if (this.hashing)
-	    return;
+	    return cb();
 
 	/* Keep hashing the same piece for as long as possible */
 	if (!this.hashingPiece || !this.hashingPiece.canContinueHashing())
@@ -294,10 +293,11 @@ Store.prototype = {
 	    // console.log("hashingPiece", this.hashingPiece);
 	    this.hashingPiece.continueHashing(function() {
 		this.hashing = false;
-		this.mayHash();
+		this.mayHash(cb);
 	    }.bind(this));
 	    this.hashing = true;
-	}
+	} else
+	    cb();
     }
 };
 
@@ -456,7 +456,12 @@ StorePiece.prototype = {
 		var len = chunk.length - start;
 		var offset = chunk.offset + start;
 		if (chunk.data && chunk.data.length > 0) {
-		    this.canHash(offset, chunk.data, cb);
+		    this.canHash(offset, chunk.data, function() {
+			if (i === this.chunks.length - 1)
+			    cb();
+			else
+			    this.continueHashing(cb);
+		    }.bind(this));
 		} else {
 		    /* This path will only be taken if recovery found
 		     * stored data for a not yet valid chunk
@@ -475,9 +480,9 @@ StorePiece.prototype = {
 		return;
 	    } else if (start < 0) {
 		console.log("cannot Hash", this.chunks, this.sha1pos);
-		cb();
 	    }
 	}
+	cb();
     },
 
     onHashed: function(hash) {
