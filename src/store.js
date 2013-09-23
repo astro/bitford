@@ -223,7 +223,7 @@ Store.prototype = {
 		if (chunk.data) {
 		    var data = chunk.data;
 		    if (chunkOffset < offset)
-			data = data.slice(offset - chunkOffset);
+			data = data.getBufferList(offset - chunkOffset);
 		    data.readAsArrayBuffer(cb);
 		} else {
 		    this.backend.readFrom(chunkOffset, function(data) {
