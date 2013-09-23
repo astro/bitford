@@ -55,7 +55,7 @@ Store.prototype = {
 	    pending--;
 	    if (pending < 1) {
 		console.log("existing", offset, "done", pending);
-		this.mayHash();
+		//this.mayHash();
 		if (cb)
 		    cb();
 	    }
@@ -267,37 +267,6 @@ Store.prototype = {
 	    this.bytesLeft = null;
 	} else
 	    cb();
-    },
-
-    nextToHash: function() {
-	var lookForPiece = function(pieces) {
-	    for(var i = 0; i < pieces.length; i++) {
-		var piece = pieces[i];
-		if (piece.canContinueHashing())
-		    return piece;
-	    }
-	}
-	return lookForPiece(this.interestingPieces) ||
-	    lookForPiece(this.pieces);
-    },
-
-    mayHash: function(cb) {
-	if (this.hashing)
-	    return cb();
-
-	/* Keep hashing the same piece for as long as possible */
-	if (!this.hashingPiece || !this.hashingPiece.canContinueHashing())
-	    this.hashingPiece = this.nextToHash();
-
-	if (this.hashingPiece) {
-	    // console.log("hashingPiece", this.hashingPiece);
-	    this.hashingPiece.continueHashing(function() {
-		this.hashing = false;
-		this.mayHash(cb);
-	    }.bind(this));
-	    this.hashing = true;
-	} else
-	    cb();
     }
 };
 
@@ -392,7 +361,7 @@ StorePiece.prototype = {
 
     canHash: function(offset, data, cb) {
 	if (offset > this.sha1pos) {
-	    /* To be picked up by canContinueHashing when preceding data has been hashed */
+	    /* To be picked up again when preceding data has been hashed */
 	    return cb();
 	} else if (offset < this.sha1pos) {
 	    data.take(this.sha1pos - offset);
@@ -428,19 +397,6 @@ StorePiece.prototype = {
 		this.onHashed(hash);
 	    }.bind(this));
 	}
-    },
-
-    canContinueHashing: function() {
-	for(var i = 0;
-	    i < this.chunks.length &&
-	    (this.chunks[i].state == 'received' || this.chunks[i].state == 'valid') &&
-	    this.chunks[i].offset <= this.sha1pos;
-	    i++) {
-	    // console.log("canContinueHashing", this.sha1pos, i, this.chunks, this.chunks[i].offset + this.chunks[i].length > this.sha1pos);
-	    if (this.chunks[i].offset + this.chunks[i].length > this.sha1pos)
-		return true;
-	}
-	return false;
     },
 
     continueHashing: function(cb) {
