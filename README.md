@@ -5,6 +5,8 @@ A BitTorrent client as a Chrome Packaged App.
 Contrary to other implementations, this one talks the native
 BitTorrent protocol 100% in JavaScript.
 
+**New:** install from the Chrome Web Store: https://chrome.google.com/webstore/detail/bitford/agjcpjkkccmhfopfciohkkfolnjbbdoh
+
 ## Try it
 
 * Go to `chrome://extensions/`
