@@ -173,7 +173,9 @@ app.controller('TorrentController', function($scope) {
 	peers: false,
 	pieces: false
     };
+});
 
+app.controller('TorrentFileController', function($scope) {
     $scope.canPlay = function(path) {
 	var mimeType = getMimeType(path);
 	// TODO: determine support

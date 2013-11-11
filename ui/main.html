@@ -47,7 +47,7 @@
 	  <h3 ng-click="show.files = !show.files">Files</h3>
 
 	  <ul class="files" ng-show="show.files">
-	    <li ng-repeat="file in torrent.files">
+	    <li ng-repeat="file in torrent.files" ng-controller="TorrentFileController">
 	      <h4>{{file.path.join("/")}}</h4>
 	      <p class="size">{{humanSize(file.size)}}</p>
 	      <button ng-click="saveButton(file.path)" ng-disabled="saving">Save</button>
