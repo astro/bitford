@@ -42,7 +42,7 @@ TrackerGroup.prototype = {
 		}
 	    }
 
-	    var interval = (response.interval || 30 + 30 * Math.random()) * 1000;
+	    var interval = (response && response.interval || 30 + 30 * Math.random()) * 1000;
 	    this.nextReq = Date.now() + interval;
 	    this.timeout = setTimeout(this.start.bind(this), Math.ceil(interval));
 	}.bind(this));
