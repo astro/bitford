@@ -1,13 +1,23 @@
 var httpStreamPort;
 
 createHTTPServer(function(req, res) {
-    var path = req.path.split("/");
+    var path = req.path.split("/").map(function(s) {
+	return decodeURIComponent(s);
+    });
     while(path[0] === "")
 	path.shift();
+    var torrentName;
+    if (path.length > 1)
+	torrentName = path.shift();
+    else
+	torrentName = path[0];
+    console.log("torrentName", torrentName, "path", path);
 
     var size;
     for(var i = 0; i < torrents.length; i++) {
 	var torrent = torrents[i];
+	if (torrent.name !== torrentName)
+	    continue;
 	for(var j = 0; j < torrent.files.length; j++) {
 	    if (arrayEq(torrent.files[j].path, path)) {
 		size = torrent.files[j].size;

@@ -32,7 +32,7 @@ function Torrent(meta) {
 	this.files = [{ path: [name], size: meta.info.length }];
     else if (meta.info.files.__proto__.constructor == Array)
 	this.files = meta.info.files.map(function(file) {
-	    return { path: [name].concat(file.path.map(UTF8ArrToStr)),
+	    return { path: file.path.map(UTF8ArrToStr),
 		     size: file.length
 		   };
 	});
