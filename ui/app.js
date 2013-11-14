@@ -173,6 +173,12 @@ app.controller('TorrentController', function($scope) {
 	peers: false,
 	pieces: false
     };
+
+    $scope.removeButton = function() {
+	chrome.runtime.getBackgroundPage(function(background) {
+	    background.rmTorrent($scope.torrent);
+	});
+    };
 });
 
 app.controller('TorrentFileController', function($scope) {
@@ -250,11 +256,6 @@ app.controller('TorrentFileController', function($scope) {
 	    }, function(e) {
 		console.error("createWriter", e);
 	    });
-	});
-    };
-    $scope.removeButton = function() {
-	chrome.runtime.getBackgroundPage(function(background) {
-	    background.rmTorrent($scope.torrent);
 	});
     };
 });
