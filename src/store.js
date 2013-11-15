@@ -3,13 +3,9 @@ var requestFileSystem_ = window.requestFileSystem ||
 var PersistentStorage_ = navigator.PersistentStorage ||
     navigator.webkitPersistentStorage;
 
-function Store(torrent, pieceHashes, pieceLength) {
+function Store(torrent, torrentSize, pieceHashes, pieceLength) {
     this.torrent = torrent;
-    this.size = 0;
-    var files = torrent.files;
-    files.forEach(function(file) {
-	this.size += file.size;
-    }.bind(this));
+    this.size = torrentSize;
     this.pieceLength = pieceLength;
 
     var infoHashHex = bufferToHex(torrent.infoHash);
@@ -17,27 +13,11 @@ function Store(torrent, pieceHashes, pieceLength) {
 
     this.pieces = [];
     /* Build pieces... */
-    var filesIdx = 0, fileOffset = 0;
-    while(filesIdx < files.length) {
-	var pieceOffset = 0;
-	var chunks = [];
-	/* ...from files */
-	while(pieceOffset < pieceLength && filesIdx < files.length) {
-	    var length = Math.min(pieceLength - pieceOffset, files[filesIdx].size - fileOffset);
-	    chunks.push({ path: files[filesIdx].path,
-			  fileOffset: fileOffset,
-			  offset: pieceOffset,
-			  length: length });
-	    pieceOffset += length;
-	    fileOffset += length;
-	    if (fileOffset >= files[filesIdx].size) {
-		filesIdx++;
-		fileOffset = 0;
-	    }
-	}
-	this.pieces.push(new StorePiece(this, this.pieces.length, chunks, pieceHashes[this.pieces.length]));
+    for(var offset = 0; offset < torrentSize; offset += pieceLength) {
+	var length = Math.min(pieceLength, torrentSize - offset);
+	var pieceNumber = this.pieces.length;
+	this.pieces.push(new StorePiece(this, pieceNumber, length, pieceHashes[pieceNumber]));
     }
-    this.fileEntries = {};
 
     /* Lower bound for interestingPieces */
     this.interestingPiecesThreshold = 2;
@@ -205,6 +185,7 @@ Store.prototype = {
 	return result;
     },
 
+    /* TODO: move path handling to Torrent */
     consumeFile: function(path, offset, cb) {
 	var i, j, found = false;
 	for(i = 0; !found && i < this.pieces.length; i++) {
@@ -272,25 +253,18 @@ Store.prototype = {
 
 var CHUNK_LENGTH = Math.pow(2, 14);  /* 16 KB */
 
-function StorePiece(store, pieceNumber, chunks, expectedHash) {
+function StorePiece(store, pieceNumber, pieceLength, expectedHash) {
     this.store = store;
     this.pieceNumber = pieceNumber;
+    /* Create chunks */
     this.chunks = [];
-    for(var i = 0; i < chunks.length; i++) {
-	var chunk = chunks[i];
-	while(chunk.length > 0) {
-	    var l = Math.min(chunk.length, CHUNK_LENGTH);
-	    this.chunks.push({
-		path: chunk.path,
-		fileOffset: chunk.fileOffset,
-		offset: chunk.offset,
-		length: l,
-		state: 'missing'
-	    });
-	    chunk.fileOffset += l;
-	    chunk.offset += l;
-	    chunk.length -= l;
-	}
+    for(var offset = 0; offset < pieceLength; offset += CHUNK_LENGTH) {
+	var length = Math.min(chunk.length, CHUNK_LENGTH);
+	this.chunks.push({
+	    offset: offset,
+	    length: length,
+	    state: 'missing'
+	});
     }
 
     this.expectedHash = expectedHash;

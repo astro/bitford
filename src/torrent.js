@@ -28,17 +28,21 @@ function Torrent(meta) {
 
     /* Init Storage */
     var name = UTF8ArrToStr(meta.info.name);
-    if (typeof meta.info.length == 'number')
+    var torrentSize;
+    if (typeof meta.info.length == 'number') {
+	torrentSize = meta.info.length;
 	this.files = [{ path: [name], size: meta.info.length }];
-    else if (meta.info.files.__proto__.constructor == Array)
+    } else if (meta.info.files.__proto__.constructor == Array)
+	torrentSize = 0;
 	this.files = meta.info.files.map(function(file) {
+	    torrentSize += file.length;
 	    return { path: file.path.map(UTF8ArrToStr),
 		     size: file.length
 		   };
 	});
     else
 	throw "Invalid torrent: no files";
-    this.store = new Store(this, pieces, pieceLength);
+    this.store = new Store(this, torrentSize, pieces, pieceLength);
 
     this.bytesDownloaded = 0;
     this.bytesUploaded = 0;  /* Altered by Peer */

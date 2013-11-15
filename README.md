@@ -24,6 +24,8 @@ BitTorrent protocol 100% in JavaScript.
 
 ### Background
 
+* Back pressure
+* Error handling
 * Couple piece receiving to chunk store with background sha1 hashing
 * Fix recovery
 * store-backend: unify open bitford-store
