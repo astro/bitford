@@ -185,31 +185,33 @@ Store.prototype = {
 	return result;
     },
 
-    /* TODO: move path handling to Torrent */
-    consumeFile: function(path, offset, cb) {
-	var i, j, found = false;
-	for(i = 0; !found && i < this.pieces.length; i++) {
-	    var piece = this.pieces[i];
-	    for(j = 0; !found && j < piece.chunks.length; j++) {
-		var chunk = piece.chunks[j];
-		found = arrayEq(chunk.path, path) &&
-		    chunk.fileOffset <= offset &&
-		    chunk.fileOffset + chunk.length > offset;
-	    }
-	}
+    /**
+     * A read that can take really long; prioritize pieces, wait until
+     * they're valid 
+     */
+    consume: function(offset, cb) {
+	var pieceNumber = Math.floor(offset / this.pieceLength);
+	var piece = this.pieces[pieceNumber];
 
-	if (found) {
+	var chunkOffset = offset - pieceNumber * this.pieceLength;
+	var chunk;
+	for(var i = 0; i < piece.chunks.length; i++) {
+	    chunk = piece.chunks[i];
+	    if (chunk.offset <= chunkOffset && chunk.offset + chunk.length > chunkOffset)
+		break;
+	    chunk = undefined;
+	}
+	if (piece && chunk) {
 	    piece.addOnValid(function() {
-		var chunkOffset = piece.pieceNumber * this.pieceLength + chunk.offset;
 		if (chunk.data) {
 		    var data = chunk.data;
-		    if (chunkOffset < offset)
-			data = data.getBufferList(offset - chunkOffset);
+		    if (chunk.offset < chunkOffset)
+			data = data.getBufferList(chunkOffset - chunk.offset);
 		    data.readAsArrayBuffer(cb);
 		} else {
 		    this.backend.readFrom(chunkOffset, function(data) {
-			if (chunkOffset < offset)
-			    data = data.slice(offset - chunkOffset);
+			if (chunk.offset < chunkOffset)
+			    data = data.slice(chunkOffset - chunk.offset);
 			cb(data);
 		    });
 		}
@@ -229,7 +231,7 @@ Store.prototype = {
 		return readahead.indexOf(piece.pieceNumber) === -1;
 	    }));
 	} else {
-	    console.warn("consumeFile: not found", path, "+", offset);
+	    console.warn("consume: offset exceeded torrent length:", offset);
 	    cb();
 	}
     },
@@ -259,7 +261,7 @@ function StorePiece(store, pieceNumber, pieceLength, expectedHash) {
     /* Create chunks */
     this.chunks = [];
     for(var offset = 0; offset < pieceLength; offset += CHUNK_LENGTH) {
-	var length = Math.min(chunk.length, CHUNK_LENGTH);
+	var length = Math.min(pieceLength - offset, CHUNK_LENGTH);
 	this.chunks.push({
 	    offset: offset,
 	    length: length,

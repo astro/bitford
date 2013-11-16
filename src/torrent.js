@@ -32,7 +32,7 @@ function Torrent(meta) {
     if (typeof meta.info.length == 'number') {
 	torrentSize = meta.info.length;
 	this.files = [{ path: [name], size: meta.info.length }];
-    } else if (meta.info.files.__proto__.constructor == Array)
+    } else if (meta.info.files.__proto__.constructor == Array) {
 	torrentSize = 0;
 	this.files = meta.info.files.map(function(file) {
 	    torrentSize += file.length;
@@ -40,7 +40,7 @@ function Torrent(meta) {
 		     size: file.length
 		   };
 	});
-    else
+    } else
 	throw "Invalid torrent: no files";
     this.store = new Store(this, torrentSize, pieces, pieceLength);
 

@@ -63,7 +63,7 @@ app.directive('piecesCanvas', function() {
 		    return;
 		var pieceLength = $scope.torrent.store.pieceLength;
 		element.attr('width', Math.min(2048, 4 * pieces.length));
-		element.attr('height', Math.min(64, 4 * Math.ceil(pieceLength / 32768)));
+		element.attr('height', 64);
 		var canvas = element[0];
 		var ctx = canvas.getContext('2d');
 		ctx.fillStyle = "white";
