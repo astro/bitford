@@ -94,6 +94,9 @@ app.directive('piecesCanvas', function() {
 				case 'valid':
 				    ctx.fillStyle = pieces[x].valid ? "#77f" : "#33f";
 				    break;
+				case 'writing':
+				    ctx.fillStyle = "#030";
+				    break;
 				case 'written':
 				    ctx.fillStyle = "#7f7";
 				    break;

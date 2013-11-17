@@ -118,66 +118,17 @@ StoreBackend.prototype = {
 	}
     },
 
-    readFrom: function(offset, cb) {
+    read: function(offset, cb) {
 	this.transaction("readonly", function(objectStore) {
 	    var req = objectStore.get(this.key(offset));
 	    req.onsuccess = function(event) {
-		var data = req.result;
-		if (data) {
-		    cb(req.result);
-		} else {
-		    req = objectStore.openCursor(
-			IDBKeyRange.upperBound(this.key(offset)),
-			'prev'
-		    );
-		    req.onsuccess = function(event) {
-			var cursor = event.target.result;
-                        if (cursor && cursor.key && cursor.value) {
-                            var cursorOffset = parseInt(cursor.key.slice(41), 16);
-                            console.log("store index for", offset, "at", cursorOffset, "..", cursorOffset + cursor.value.byteLength);
-                            cb(cursor.value.slice(offset - cursorOffset));
-			} else {
-			    console.error("store readFrom offset too low", offset);
-			    cb();
-			}
-		    };
-                    req.onerror = function(e) {
-                        console.error("store index read", offset, e);
-                        cb();
-                    };
-		}
-	    }.bind(this);
+		cb(req.result);
+	    };
 	    req.onerror = function(e) {
 		console.error("store read", offset, e);
 		cb();
 	    };
 	}.bind(this));
-    },
-
-    read: function(offset, length, cb) {
-	var result = new BufferList();
-
-	var readFrom = function(offset, remain) {
-	    if (remain < 1) {
-		return cb(result);
-	    }
-
-	    this.readFrom(offset, function(data) {
-		var len = data ? data.byteLength : 0;
-		if (len > 0) {
-		    if (len > remain) {
-			data = data.slice(0, remain);
-			len = data.byteLength;
-		    }
-		    result.append(data);
-		    readFrom(offset + len, remain - len);
-		} else {
-		    console.error("Read", len, "instead of", remain, "from", offset);
-		    return cb(result);
-		}
-	    });
-	}.bind(this);
-	readFrom(offset, length);
     },
 
     write: function(offset, data, cb) {
