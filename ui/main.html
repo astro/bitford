@@ -50,9 +50,11 @@
 	    <li ng-repeat="file in torrent.files" ng-controller="TorrentFileController">
 	      <h4>{{file.path.join("/")}}</h4>
 	      <p class="size">{{humanSize(file.size)}}</p>
-	      <button ng-click="saveButton(file.path)" ng-disabled="saving">Save</button>
-	      <button ng-show="canPlay(file.path)"
-		      ng-click="playButton(file.path)">Play</button>
+	      <button ng-click="saveButton()" ng-disabled="saving">Save</button>
+	      <button ng-show="canPlay"
+		      ng-click="playButton()">Play</button>
+	      <button ng-show="canViewImage"
+		      ng-click="viewImageButton()">View</button>
 	      <div ng-show="videoURL || audioURL" class="video-container">
 		<video ng-show="videoURL"
 	               controls autoplay
@@ -62,6 +64,9 @@
 	               controls autoplay
 		       src="{{audioURL}}">
 		</audio>
+	      </div>
+	      <div ng-show="imageURL" class="video-container">
+		<webview src="{{imageURL}}"></webview>
 	      </div>
 	    </li>
 	  </ul>

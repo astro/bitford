@@ -182,12 +182,20 @@ app.controller('TorrentController', function($scope) {
 });
 
 app.controller('TorrentFileController', function($scope) {
-    $scope.canPlay = function(path) {
-	var mimeType = getMimeType(path);
-	// TODO: determine support
-	return /^video\//.test(mimeType) || /^audio\//.test(mimeType);
+    var makeURL = function(httpStreamPort) {
+	var url = "http://localhost:" + httpStreamPort + "/" +
+	    encodeURIComponent($scope.torrent.name);
+	if ($scope.torrent.files.length !== 1)
+	    url += "/" + $scope.file.path.map(function(s) {
+	        return encodeURIComponent(s);
+	    }).join("/");
+	return url;
     };
-    $scope.playButton = function(path) {
+
+    var mimeType = getMimeType($scope.file.path);
+    // TODO: determine support
+    $scope.canPlay = /^video\//.test(mimeType) || /^audio\//.test(mimeType);
+    $scope.playButton = function() {
 	if ($scope.videoURL || $scope.audioURL) {
 	    $scope.videoURL = null;
 	    $scope.audioURL = null;
@@ -196,13 +204,26 @@ app.controller('TorrentFileController', function($scope) {
 
 	chrome.runtime.getBackgroundPage(function(background) {
 	    var httpStreamPort = background.httpStreamPort;
-	    var mimeType = getMimeType(path);
+	    console.log("background", background);
 	    console.log("app httpStreamPort", httpStreamPort);
-	    var url = "http://localhost:" + httpStreamPort + "/" + path.join("/");
 	    if (/^video\//.test(mimeType))
-		$scope.videoURL = url;
+		$scope.videoURL = makeURL(httpStreamPort);
 	    else if (/^audio\//.test(mimeType))
-		$scope.audioURL = url;
+		$scope.audioURL = makeURL(httpStreamPort);
+	    $scope.$digest();
+	});
+    };
+    $scope.canViewImage = /^image\//.test(mimeType);
+    $scope.viewImageButton = function(path) {
+	if ($scope.imageURL) {
+	    $scope.imageURL = null;
+	    return;
+	}
+
+	chrome.runtime.getBackgroundPage(function(background) {
+	    var httpStreamPort = background.httpStreamPort;
+	    console.log("background", background);
+	    $scope.imageURL = makeURL(httpStreamPort);
 	    $scope.$digest();
 	});
     };

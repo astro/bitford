@@ -12,7 +12,10 @@ var MIME_TYPES = {
     "3gp": "audio/3gpp",
     "ogg": "audio/ogg",
     "oga": "audio/ogg",
-    "opus": "audio/opus"
+    "opus": "audio/opus",
+    "gif": "image/gif",
+    "jpg": "image/jpeg",
+    "png": "image/png"
 };
 
 function getMimeType(path) {

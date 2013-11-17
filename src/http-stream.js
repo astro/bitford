@@ -1,5 +1,3 @@
-var httpStreamPort;
-
 createHTTPServer(function(req, res) {
     var path = req.path.split("/").map(function(s) {
 	return decodeURIComponent(s);
@@ -41,7 +39,7 @@ createHTTPServer(function(req, res) {
     }
 }, function(err, port) {
     if (port)
-	httpStreamPort = port;
+	window.httpStreamPort = port;
 });
 
 function handleStreamRequest(req, res, contentType, torrentOffset, size, torrent) {
