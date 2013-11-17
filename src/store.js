@@ -192,28 +192,29 @@ Store.prototype = {
     consume: function(offset, cb) {
 	var pieceNumber = Math.floor(offset / this.pieceLength);
 	var piece = this.pieces[pieceNumber];
-
-	var chunkOffset = offset - pieceNumber * this.pieceLength;
-	var chunk;
-	for(var i = 0; i < piece.chunks.length; i++) {
-	    chunk = piece.chunks[i];
-	    if (chunk.offset <= chunkOffset && chunk.offset + chunk.length > chunkOffset)
-		break;
-	    chunk = undefined;
-	}
-	if (piece && chunk) {
+	if (piece) {
 	    piece.addOnValid(function() {
-		if (chunk.data) {
+		var chunkOffset = offset - pieceNumber * this.pieceLength;
+		var chunk;
+		for(var i = 0; i < piece.chunks.length; i++) {
+		    chunk = piece.chunks[i];
+		    if (chunk.offset <= chunkOffset && chunk.offset + chunk.length > chunkOffset)
+			break;
+		    chunk = undefined;
+		}
+		if (chunk && chunk.data) {
 		    var data = chunk.data;
 		    if (chunk.offset < chunkOffset)
 			data = data.getBufferList(chunkOffset - chunk.offset);
 		    data.readAsArrayBuffer(cb);
-		} else {
-		    this.backend.read(chunkOffset, function(data) {
+		} else if (chunk) {
+		    this.backend.read(chunk.offset, function(data) {
 			if (chunk.offset < chunkOffset)
 			    data = data.slice(chunkOffset - chunk.offset);
 			cb(data);
 		    });
+		} else {
+		    cb();
 		}
 	    }.bind(this));
 	    
@@ -491,12 +492,10 @@ StorePiece.prototype = {
 	    length += this.chunks[i].data.length;
 	    chunks.push(this.chunks[i]);
 	}
+        chunks.forEach(function(chunk) {
+            chunk.state = 'writing';
+        });
 	/* Concatenate */
-	var newChunk = {
-	    offset: chunks[0].offset,
-	    length: length,
-	    state: 'writing'
-	};
 	var reader = new FileReader();
 	reader.onload = function() {
 	    try {
@@ -504,7 +503,12 @@ StorePiece.prototype = {
 		this.store.backend.write(
 		    this.pieceNumber * this.store.pieceLength + offset,
 		    reader.result, function() {
-			newChunk.state = 'written';
+	                var newChunk = {
+	                    offset: chunks[0].offset,
+	                    length: length,
+	                    state: 'written'
+	                };
+			this.chunks.splice(i1, chunks.length, newChunk);
 			/* loop (because we write only up to storeChunkLength */
 			this.writeToBackend();
 		    }.bind(this));
@@ -518,8 +522,6 @@ StorePiece.prototype = {
 	}));
 	// console.log("buffers", length, ":", buffers);
 	reader.readAsArrayBuffer(new Blob(buffers));
-
-	this.chunks.splice(i1, chunks.length, [newChunk]);
     }
 };
 
