@@ -350,19 +350,18 @@ StorePiece.prototype = {
 	    data.take(this.sha1pos - offset);
 	}
 	// console.log("piece", this.store.pieces.indexOf(this), "canHash", offset, this.sha1pos);
-	var pendingUpdates = 1;
-	function onUpdated() {
-	    pendingUpdates--;
-	    if (pendingUpdates < 1 && cb)
+	var pending = 1;
+	function onDone() {
+	    pending--;
+	    if (pending < 1 && cb)
 		cb();
 	}
 	data.getBuffers().forEach(function(buf) {
 	    this.sha1pos += buf.byteLength;
-	    this.store.sha1Worker.update(this.pieceNumber, buf, onUpdated);
-	    pendingUpdates++;
+	    this.store.sha1Worker.update(this.pieceNumber, buf, onDone);
+	    pending++;
 	    /* buf is neutered here, don't reuse data */
 	}.bind(this));
-	onUpdated();
 
 	var chunk;
 	for(var i = 0; i < this.chunks.length; i++) {
@@ -377,9 +376,11 @@ StorePiece.prototype = {
 	if (i >= this.chunks.length) {
 	    /* No piece followed, validate hash */
 	    this.store.sha1Worker.finalize(this.pieceNumber, function(hash) {
-		this.onHashed(hash);
+		this.onHashed(hash, onDone);
 	    }.bind(this));
-	}
+	} else {
+            onDone();
+        }
     },
 
     continueHashing: function(cb) {
@@ -424,7 +425,7 @@ StorePiece.prototype = {
 	cb();
     },
 
-    onHashed: function(hash) {
+    onHashed: function(hash, cb) {
 	hash = new Uint8Array(hash);
 	this.sha1 = null;
 
@@ -458,7 +459,7 @@ StorePiece.prototype = {
 	    }.bind(this));
 	
 	    /* Drop memory storage just after onValidCbs have been run */
-	    this.writeToBackend();
+	    this.writeToBackend(cb);
 	}
     },
 
@@ -475,7 +476,7 @@ StorePiece.prototype = {
     /**
      * Persist when piece has gone valid
      **/
-    writeToBackend: function() {
+    writeToBackend: function(cb) {
 	var storeChunkLength = Math.min(512 * 1024, this.store.pieceLength);
 	var i;
 	
@@ -485,7 +486,7 @@ StorePiece.prototype = {
 	if (i >= this.chunks.length) {
 	    /* All done */
 	    console.log("Piece", this.pieceNumber, "seems fully persisted");
-	    return;
+	    return cb();
 	}
 	/* i now points to the first chunk that has data */
 	var i1 = i;
@@ -504,25 +505,23 @@ StorePiece.prototype = {
 	/* Concatenate */
 	var reader = new FileReader();
 	reader.onload = function() {
-	    try {
-		console.log("Write to", this.pieceNumber, "+", offset, ":", reader.result.byteLength, "/", length, "bytes");
-		this.store.backend.write(
-		    this.pieceNumber * this.store.pieceLength + offset,
-		    reader.result, function() {
-	                var newChunk = {
-	                    offset: chunks[0].offset,
+	    console.log("Write to", this.pieceNumber, "+", offset, ":", reader.result.byteLength, "/", length, "bytes");
+	    this.store.backend.write(
+		this.pieceNumber * this.store.pieceLength + offset,
+		reader.result, function() {
+	            var newChunk = {
+	                offset: chunks[0].offset,
 	                    length: length,
 	                    state: 'written'
 	                };
-			this.chunks.splice(i1, chunks.length, newChunk);
-			/* loop (because we write only up to storeChunkLength */
-			this.writeToBackend();
-		    }.bind(this));
-	    } catch (e) {
-		console.error("writeToBackend", e);
-		this.writeToBackend();
-	    }
+		    this.chunks.splice(i1, chunks.length, newChunk);
+		    /* loop (because we write only up to storeChunkLength */
+		    this.writeToBackend(cb);
+		}.bind(this));
 	}.bind(this);
+        reader.onerror = function() {
+            cb();
+        };
 	var buffers = [].concat.apply([], chunks.map(function(chunk) {
 	    return chunk.data.getBuffers();
 	}));
