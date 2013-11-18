@@ -78,7 +78,7 @@ function handleStreamRequest(req, res, contentType, torrentOffset, size, torrent
         }
 
         torrent.store.consume(torrentOffset + bytes, function(data) {
-            if (data.byteLength > 0) {
+            if (data && data.byteLength > 0) {
 		console.log("consume", data.byteLength);
                 if (bytes + data.byteLength > end)
                     data = data.slice(0, end - bytes);

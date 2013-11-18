@@ -191,6 +191,7 @@ Store.prototype = {
      */
     consume: function(offset, cb) {
 	var pieceNumber = Math.floor(offset / this.pieceLength);
+        var pieceOffset = pieceNumber * this.pieceLength;
 	var piece = this.pieces[pieceNumber];
 	if (piece) {
 	    piece.addOnValid(function() {
@@ -204,13 +205,18 @@ Store.prototype = {
 		}
 		if (chunk && chunk.data) {
 		    var data = chunk.data;
-		    if (chunk.offset < chunkOffset)
+		    if (chunk.offset < chunkOffset) {
+                        console.log("consume", offset, ":", pieceNumber, "clip", chunk.offset, "<", chunkOffset);
 			data = data.getBufferList(chunkOffset - chunk.offset);
+                    }
 		    data.readAsArrayBuffer(cb);
 		} else if (chunk) {
-		    this.backend.read(chunk.offset, function(data) {
-			if (chunk.offset < chunkOffset)
-			    data = data.slice(chunkOffset - chunk.offset);
+                    var absoluteChunkOffset = pieceOffset + chunk.offset;
+		    this.backend.read(absoluteChunkOffset, function(data) {
+			if (absoluteChunkOffset < offset) {
+                            console.log("consume", offset, ":", pieceNumber, "clip", absoluteChunkOffset);
+			    data = data.slice(offset - absoluteChunkOffset);
+                        }
 			cb(data);
 		    });
 		} else {
