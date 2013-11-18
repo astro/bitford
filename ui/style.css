@@ -141,7 +141,8 @@ header h1 {
     margin: 4px 0 4px;
     text-align: center;
 }
-.torrent .video-container video {
+.torrent .video-container video,
+.torrent .video-container webview {
     width: 100%;
 }
 
