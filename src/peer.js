@@ -463,14 +463,6 @@ Peer.prototype = {
 		    continue;
 		}
 	    }
-
-	    /* Desperate */
-	    chunk = this.torrent.store.nextToDownload(this, true);
-	    if (chunk)
-		this.request(chunk);
-	    else
-		/* Nothing can be done */
-		break;
 	}
     },
 
