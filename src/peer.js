@@ -434,12 +434,11 @@ Peer.prototype = {
 	this.inflightThreshold = Math.max(2,
 	    Math.ceil(this.downRate.getRate() * 0.5 / CHUNK_LENGTH));
 
-	while(this.requestedChunks.length < this.inflightThreshold) {
-	    var chunk = this.torrent.store.nextToDownload(this);
+        var chunk = true;
+	while(chunk && this.requestedChunks.length < this.inflightThreshold) {
+	    chunk = this.torrent.store.nextToDownload(this);
 	    if (chunk) {
 		this.request(chunk);
-		/* Skip to next */
-		continue;
 	    }
 
 	    /* Work stealing */
@@ -451,16 +450,19 @@ Peer.prototype = {
 		    maxReqsIdx = i;
 		}
 	    }
-	    if (maxReqs > 2 && maxReqs >= 2 * this.requestedChunks.length) {
-		var peer = this.torrent.peers[maxReqsIdx];
+	    var peer = this.torrent.peers[maxReqsIdx];
+	    if (peer &&
+                maxReqs > this.requestedChunks.length &&
+                this.downRate.getRate() > peer.downRate.getRate()) {
+
 		// console.log("peer", peer.ip, "has max reqs:", maxReqs);
-		chunk = peer.requestedChunks.pop();
-		peer.sendCancel(chunk.piece, chunk.offset, chunk.length);
-		if (chunk && this.has(chunk.piece)) {
+                chunk = peer.requestedChunks[peer.requestedChunks - 1];
+                if (chunk && this.has(chunk.piece)) {
+		    peer.requestedChunks.pop();
+		    peer.sendCancel(chunk.piece, chunk.offset, chunk.length);
 		    console.log(this.ip, "stole from", peer.ip, ":", chunk);
 		    chunk.peer = this;
 		    this.request(chunk);
-		    continue;
 		}
 	    }
 	}
