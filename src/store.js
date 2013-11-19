@@ -127,13 +127,17 @@ Store.prototype = {
 	    });
 	}
 	/* Select by highest rarity first, or randomly */
-	var idxs = Object.keys(rarity).sort(function(idx1, idx2) {
-	    var r1 = rarity[idx1], r2 = rarity[idx2];
-	    if (r1 === r2)
-		return Math.random() - 0.5;
-	    else
-		return r2 - r1;
-	});
+	var idxs = Object.keys(rarity).
+            filter(function(idx) {
+                return rarity[idx] > 0;
+            }).
+            sort(function(idx1, idx2) {
+	        var r1 = rarity[idx1], r2 = rarity[idx2];
+	        if (r1 === r2)
+		    return Math.random() - 0.5;
+	        else
+		    return r2 - r1;
+	    });
 	for(i = 0; (forceOne || this.interestingPieces.length < this.piecesReadahead) && i < idxs.length; i++) {
 	    var idx = idxs[i];
 	    piece = this.pieces[idx];
