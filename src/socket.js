@@ -152,7 +152,7 @@ TCPSocket.prototype.write = function(data) {
 	    }
 	    this.writesPending--;
 
-	    if (this.writesPending < 1) {
+	    if (this.writesPending < 1 && this.sockId) {
 		this.drained = true;
 		if (this.onDrain)
 		    this.onDrain();
