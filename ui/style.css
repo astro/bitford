@@ -150,8 +150,6 @@ header h1 {
     border-spacing: 0;
     margin: 0 auto;
     display: block;
-    height: 10em;
-    overflow: auto;
 }
 .torrent .peers thead tr {
     background-color: #333;
