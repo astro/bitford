@@ -3,6 +3,7 @@ function RateEstimator() {
     this.lastTick = Date.now();
     this.rates = [];
     this.rate = 0;
+    this.bestRate = 0;
 }
 
 RateEstimator.prototype = {
@@ -35,6 +36,8 @@ RateEstimator.prototype = {
 
     getRate: function() {
 	this.canTick();
+        if (this.rate > this.bestRate)
+            this.bestRate = this.rate;
 	return this.rate;
     }
 };
