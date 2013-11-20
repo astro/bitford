@@ -1,3 +1,5 @@
+var READAHEAD_TIME = 3000;
+
 var requestFileSystem_ = window.requestFileSystem ||
     window.webkitRequestFileSystem;
 var PersistentStorage_ = navigator.PersistentStorage ||
@@ -104,8 +106,7 @@ Store.prototype = {
 	/* these are proportional to torrent rate,
 	   to have piece stealing in time
 	*/
-	var readaheadTime = 2500;
-	var readaheadBytes = readaheadTime * this.torrent.downRate.getRate() / 1000;
+	var readaheadBytes = READAHEAD_TIME * this.torrent.downRate.getRate() / 1000;
 	this.interestingPiecesThreshold = Math.max(2, Math.ceil(readaheadBytes / this.pieceLength));
 	this.piecesReadahead = 2 * this.interestingPiecesThreshold;
 

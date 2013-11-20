@@ -490,8 +490,8 @@ Peer.prototype = {
 	    setTimeout(function() {
 	        this.sendCancel(piece, offset, length);
 		this.removeRequestedChunk(piece, offset, length);
-	    }.bind(this), 3000);
-	}.bind(this), 3000);
+	    }.bind(this), Math.ceil(READAHEAD_TIME * 0.5));
+	}.bind(this), Math.ceil(READAHEAD_TIME * 1.5));
 	this.requestedChunks.push(chunk);
     },
 
