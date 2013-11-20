@@ -458,12 +458,16 @@ Peer.prototype = {
 		// console.log("peer", peer.ip, "has max reqs:", maxReqs);
                 chunk = peer.requestedChunks[peer.requestedChunks - 1];
                 if (chunk && this.has(chunk.piece)) {
-		    peer.requestedChunks.pop();
-		    peer.sendCancel(chunk.piece, chunk.offset, chunk.length);
-		    console.log(this.ip, "stole from", peer.ip, ":", chunk);
-		    chunk.peer = this;
-		    this.request(chunk);
-		}
+                    peer.requestedChunks.pop();
+                    if (chunk.timeout) {
+                        clearTimeout(chunk.timeout);
+                        chunk.timeout = null;
+                    }
+                    peer.sendCancel(chunk.piece, chunk.offset, chunk.length);
+                    console.log(this.ip, "stole from", peer.ip, ":", chunk);
+                    chunk.peer = this;
+                    this.request(chunk);
+                }
 	    }
 	}
     },
@@ -480,13 +484,14 @@ Peer.prototype = {
 
 	chunk.timeout = setTimeout(function() {
 	    chunk.timeout = null;
-	    /* Let so. else try it */
-	    this.sendCancel(piece, offset, length);
+            console.log("Peer", this.ip, "timeout:", chunk);
+	    /* Let so. else try it: */
+	    chunk.cancel();
 	    setTimeout(function() {
-		chunk.cancel();
+	        this.sendCancel(piece, offset, length);
 		this.removeRequestedChunk(piece, offset, length);
-	    }.bind(this), 5000);
-	}.bind(this), 5000);
+	    }.bind(this), 3000);
+	}.bind(this), 3000);
 	this.requestedChunks.push(chunk);
     },
 

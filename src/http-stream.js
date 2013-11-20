@@ -71,7 +71,6 @@ function handleStreamRequest(req, res, contentType, torrentOffset, size, torrent
         if (looping)
             return;
         looping = true;
-        console.log("loop", bytes, "/", end, size);
         if (bytes >= size || bytes >= end) {
             res.end();
             return;
@@ -79,7 +78,6 @@ function handleStreamRequest(req, res, contentType, torrentOffset, size, torrent
 
         torrent.store.consume(torrentOffset + bytes, function(data) {
             if (data && data.byteLength > 0) {
-		console.log("consume", data.byteLength);
                 if (bytes + data.byteLength > end)
                     data = data.slice(0, end - bytes);
 		try {
@@ -90,7 +88,6 @@ function handleStreamRequest(req, res, contentType, torrentOffset, size, torrent
                 bytes += data.byteLength;
                 looping = false;
             } else {
-		console.log("consume end");
                 res.end();
 	    }
         });

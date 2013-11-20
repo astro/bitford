@@ -212,7 +212,6 @@ Store.prototype = {
 		if (chunk && chunk.data) {
 		    var data = chunk.data;
 		    if (chunk.offset < chunkOffset) {
-                        console.log("consume", offset, ":", pieceNumber, "clip", chunk.offset, "<", chunkOffset);
 			data = data.getBufferList(chunkOffset - chunk.offset);
                     }
 		    data.readAsArrayBuffer(cb);
@@ -220,7 +219,6 @@ Store.prototype = {
                     var absoluteChunkOffset = pieceOffset + chunk.offset;
 		    this.backend.read(absoluteChunkOffset, function(data) {
 			if (absoluteChunkOffset < offset) {
-                            console.log("consume", offset, ":", pieceNumber, "clip", absoluteChunkOffset);
 			    data = data.slice(offset - absoluteChunkOffset);
                         }
 			cb(data);
@@ -253,7 +251,9 @@ Store.prototype = {
 	if (pieceNumber < this.pieces.length) {
 	    var piece = this.pieces[pieceNumber];
 	    if (piece.valid) {
-		console.warn("Attempting to write to valid piece", this.pieceNumber);
+		/* Attempting to write to valid piece
+                 * (possibly timed out and requested with another peer)
+                 */
 		return;
 	    }
 
@@ -473,7 +473,6 @@ StorePiece.prototype = {
 	if (this.valid)
 	    cb();
 	else {
-	    console.log("addOnValid", this.valid, this.pieceNumber);
 	    this.onValidCbs.push(cb);
 	    this.store.onPieceMissing(this.pieceNumber);
 	}
@@ -511,7 +510,7 @@ StorePiece.prototype = {
 	/* Concatenate */
 	var reader = new FileReader();
 	reader.onload = function() {
-	    console.log("Write to", this.pieceNumber, "+", offset, ":", reader.result.byteLength, "/", length, "bytes");
+	    // console.log("Write to", this.pieceNumber, "+", offset, ":", reader.result.byteLength, "/", length, "bytes");
 	    this.store.backend.write(
 		this.pieceNumber * this.store.pieceLength + offset,
 		reader.result, function() {
@@ -531,7 +530,6 @@ StorePiece.prototype = {
 	var buffers = [].concat.apply([], chunks.map(function(chunk) {
 	    return chunk.data.getBuffers();
 	}));
-	// console.log("buffers", length, ":", buffers);
 	reader.readAsArrayBuffer(new Blob(buffers));
     }
 };
