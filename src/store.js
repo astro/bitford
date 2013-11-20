@@ -145,10 +145,11 @@ Store.prototype = {
 	    var alreadyPresent = this.interestingPieces.some(function(presentPiece) {
 		return "" + presentPiece.pieceNumber === idx;
 	    });
-	    if (!alreadyPresent) {
-		this.interestingPieces.push(piece);
-		forceOne = false;
-	    }
+            if (!alreadyPresent) {
+                this.interestingPieces.push(piece);
+                this.onPieceMissing(piece.pieceNumber);
+                forceOne = false;
+            }
 	}
     },
 
