@@ -62,7 +62,7 @@ function Torrent(meta) {
     this.trackers.forEach(function(tg) { tg.start(); });
     console.log("Torrent", this);
 
-    setInterval(this.canConnectPeer.bind(this), 100);
+    this.connectPeerLoop();
 }
 
 Torrent.prototype = {
@@ -79,14 +79,45 @@ Torrent.prototype = {
 	this.store.remove();
     },
 
-    canConnectPeer: function() {
+    connectPeerLoop: function() {
+        var candidate, connecting = 0, connected = 0;
 	for(var i = 0; i < this.peers.length; i++) {
 	    var peer = this.peers[i];
-	    if (!peer.state && !peer.error) {
-		peer.connect();
-		break;
+            if (peer.state === 'connecting' || peer.state === 'handshake')
+                connecting++;
+            else if (peer.state === 'connected')
+                connected++;
+	    else if (!candidate && !peer.state && !peer.error) {
+		candidate = peer;
 	    }
 	}
+        if (candidate && connecting < 30 && connected < 15) {
+            /* Connect to another peer */
+            candidate.connect();
+            upShaper.enqueue({
+                amount: 8192,  /* 1 Connection attempt ~ 8 KB */
+                cb: this.connectPeerLoop.bind(this)
+            });
+        } else if (connected > 30) {
+            /* Disconnect from too many peers */
+            setTimeout(function() {
+                var slowest = undefined;
+                candidate = undefined;
+                this.peers.forEach(function(peer) {
+                    if (typeof slowest == 'undefined' ||
+                        peer.downRate.getRate() < slowest)
+
+                        candidate = peer;
+                });
+                if (peer)
+                    peer.end();
+
+                this.connectPeerLoop();
+            }.bind(this), 1000);
+        } else {
+            /* Wait */
+            setTimeout(this.connectPeerLoop.bind(this), 1000);
+        }
     },
 
     addPeer: function(info) {
