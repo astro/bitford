@@ -6,8 +6,12 @@ function RateShaper(rate) {
 
 RateShaper.prototype = {
     enqueue: function(item) {
-        this.queue.push(item);
-        this.tick();
+        if (this.rate <= 0) {
+            item.cb();
+        } else {
+            this.queue.push(item);
+            this.tick();
+        }
     },
 
     tick: function() {
