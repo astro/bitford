@@ -59,7 +59,7 @@ var upShaper = {
     enqueue: upShaperRate.enqueue.bind(upShaperRate)
 };
 
-var downShaperRate = new RateShaper(1024 * 1024);
+var downShaperRate = new RateShaper(0);
 var downShaper = {
     enqueue: downShaperRate.enqueue.bind(downShaperRate)
 };
