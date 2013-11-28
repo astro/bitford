@@ -322,12 +322,25 @@ StorePiece.prototype = {
     read: function(offset, length, cb) {
 	if (length < 1)
 	    cb();
-	else
-	    this.store.backend.read(
-		this.pieceNumber * this.store.pieceLength + offset,
-		length,
-		cb
-	    );
+	else {
+            var result = new BufferList(bufs);
+            var read = function(offset, length) {
+	        this.store.backend.read(
+		    this.pieceNumber * this.store.pieceLength + offset,
+		    function(data) {
+                        if (data.byteLength > length)
+                            data = data.slice(0, length);
+                        result.append(data);
+
+                        if (length > data.byteLength) {
+                            read(offset + data.byteLength, length - data.byteLength);
+                        } else {
+                            result.readAsArrayBuffer(cb);
+                        }
+                    });
+            }.bind(this);
+            read(offset, length);
+        }
     },
 
     write: function(offset, data, cb) {
@@ -400,7 +413,6 @@ StorePiece.prototype = {
 	    var chunk = this.chunks[i];
 	    var start = this.sha1pos - chunk.offset;
 	    if (start >= 0 && start < chunk.length) {
-		var len = chunk.length - start;
 		var offset = chunk.offset + start;
 		if (chunk.data && chunk.data.length > 0) {
 		    this.canHash(offset, chunk.data, function() {
@@ -413,7 +425,7 @@ StorePiece.prototype = {
 		    /* This path will only be taken if recovery found
 		     * stored data for a not yet valid chunk
 		     */
-		    this.read(offset, len, function(data) {
+		    this.read(offset, function(data) {
 			if (data.length > 0) {
 			    this.canHash(offset, data, cb);
 			} else {
