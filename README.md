@@ -24,8 +24,12 @@ BitTorrent protocol 100% in JavaScript.
 
 ### Background
 
+* simplify interestingPieces picking (just max no min limit)
+* stealing by request age instead of timeouts
 * seeder peers dropping
 * Repair file saving
+  * cancellable
+  * no excess bytes
 * Error handling
 * Fix recovery
 * store-backend: unify open bitford-store

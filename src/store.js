@@ -30,7 +30,7 @@ function Store(torrent, torrentSize, pieceHashes, pieceLength) {
     this.sha1Worker = new SHA1Worker();
 }
 Store.prototype = {
-    /* Called back by StoreBackend() when initializing */
+    /* Called back by StoreBackend() when initializing (recovery) */
     onExisting: function(offset, data, cb) {
 	var pending = 1;
 	var done = function() {
@@ -52,16 +52,31 @@ Store.prototype = {
 	    var piece = this.pieces[i];
 	    for(var j = 0; j < piece.chunks.length; j++) {
 		var chunk = piece.chunks[j];
-		if (pieceOffset + chunk.offset >= offset &&
-		    pieceOffset + chunk.offset + chunk.length <= offset + length) {
-
-		    chunk.state = 'written';
-		}
+		if (pieceOffset + chunk.offset === offset)
+                    break;
+            }
+            if (j < piece.chunks.length) {
+                var start = j;
+                for(j++; j < piece.chunks.length; j++) {
+		    chunk = piece.chunks[j];
+		    if (pieceOffset + chunk.offset >= offset + length)
+                        break;
+                }
+                var stop = j;
+                var newChunk = {
+	            offset: offset - pieceOffset,
+	            length: length,
+	            state: 'written'
+                };
+                console.log("splice", i, ": from", start, "to", stop, "into", pieceOffset, "+", length);
+                piece.chunks.splice(start, stop - start, newChunk);
 	    }
 	    pending++;
 	    piece.canHash(offset - pieceOffset, new BufferList([data]), done);
+            pending++;
+            piece.continueHashing(done);
 	}
-	done();
+        done();
     },
 
     remove: function() {
@@ -390,7 +405,8 @@ StorePiece.prototype = {
 		/* Found a piece that follows */
 		break;
 	    } else if (chunk.offset + chunk.length <= this.sha1pos) {
-		chunk.state = 'valid';
+                if (chunk.state !== 'written')
+		    chunk.state = 'valid';
 	    }
 	}
 	if (i >= this.chunks.length) {
@@ -406,7 +422,7 @@ StorePiece.prototype = {
     continueHashing: function(cb) {
 	for(var i = 0;
 	    i < this.chunks.length &&
-	    (this.chunks[i].state == 'received' || this.chunks[i].state == 'valid') &&
+	    (['received', 'valid', 'written'].indexOf(this.chunks[i].state) >= 0) &&
 	    this.chunks[i].offset <= this.sha1pos;
 	    i++) {
 
@@ -529,9 +545,9 @@ StorePiece.prototype = {
 		reader.result, function() {
 	            var newChunk = {
 	                offset: chunks[0].offset,
-	                    length: length,
-	                    state: 'written'
-	                };
+	                length: length,
+	                state: 'written'
+	            };
 		    this.chunks.splice(i1, chunks.length, newChunk);
 		    /* loop (because we write only up to storeChunkLength */
 		    this.writeToBackend(cb);

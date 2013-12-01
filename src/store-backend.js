@@ -85,7 +85,7 @@ StoreBackend.prototype = {
 	}.bind(this), function() {
 	    if (typeof offset === 'number') {
 		if (data) {
-                    // TODO: refit chunks
+                    // refit chunks
 		    this.existingCb(offset, data, function() {
 			this.recover(offset + 1);
 		    }.bind(this));
