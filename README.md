@@ -31,7 +31,6 @@ BitTorrent protocol 100% in JavaScript.
   * cancellable
   * no excess bytes
 * Error handling
-* Fix recovery
 * store-backend: unify open bitford-store
 * Tracker event
 * Smarter request selection, based on downRate * requestedChunks.length

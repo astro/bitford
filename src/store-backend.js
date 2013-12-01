@@ -92,7 +92,9 @@ StoreBackend.prototype = {
 		} else {
 		    this.recover(offset + 1);
 		}
-	    }
+	    } else {
+                this.onRecoveryDone();
+            }
 	}.bind(this));
     },
 

@@ -12,6 +12,10 @@ function Store(torrent, torrentSize, pieceHashes, pieceLength) {
 
     var infoHashHex = bufferToHex(torrent.infoHash);
     this.backend = new StoreBackend(infoHashHex, this.onExisting.bind(this));
+    this.backend.onRecoveryDone = function() {
+        /* pass up to torrent */
+        this.onRecoveryDone();
+    }.bind(this);
 
     this.pieces = [];
     /* Build pieces... */

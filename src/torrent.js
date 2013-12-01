@@ -43,6 +43,7 @@ function Torrent(meta) {
     } else
 	throw "Invalid torrent: no files";
     this.store = new Store(this, torrentSize, pieces, pieceLength);
+    this.store.onRecoveryDone = this.start.bind(this);
 
     this.bytesDownloaded = 0;
     this.bytesUploaded = 0;  /* Altered by Peer */
@@ -57,15 +58,17 @@ function Torrent(meta) {
 	this.trackers = [new TrackerGroup(this, [UTF8ArrToStr(meta.announce)])];
     else
 	console.warn("No tracker in torrent file");
-
-    // Can defer:
-    this.trackers.forEach(function(tg) { tg.start(); });
-    console.log("Torrent", this);
-
-    this.connectPeerLoop();
 }
 
 Torrent.prototype = {
+    start: function() {
+        this.trackers.forEach(function(tg) {
+            tg.start();
+        });
+
+        this.connectPeerLoop();
+    },
+
     end: function() {
 	this.trackers.forEach(function(tg) {
 	    console.log("stop tg", tg);
