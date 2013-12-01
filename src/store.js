@@ -25,11 +25,11 @@ function Store(torrent, torrentSize, pieceHashes, pieceLength) {
 	this.pieces.push(new StorePiece(this, pieceNumber, length, pieceHashes[pieceNumber]));
     }
 
-    /* Lower bound for interestingPieces */
-    this.interestingPiecesThreshold = 2;
-    /* Upper bound for interestingPieces */
-    this.piecesReadahead = 2 * this.interestingPiecesThreshold;
+    /* (changed dynamically) */
+    this.piecesReadahead = 2;
     this.interestingPieces = [];
+    /* Upper bound for interestingPieces (changed dynamically) */
+    this.interestingPiecesThreshold = 4;
 
     this.sha1Worker = new SHA1Worker();
 }
@@ -104,35 +104,44 @@ Store.prototype = {
 	return false;
     },
 
-    // TODO: could return up to a number chunks (optimization)
-    nextToDownload: function(peer, forceOne) {
-	this.fillInterestingPieces(peer, forceOne);
-
+    nextToDownload: function(peer) {
+        var piece;
 	for(var i = 0; i < this.interestingPieces.length; i++) {
-	    var piece = this.interestingPieces[i];
+	    piece = this.interestingPieces[i];
 	    var chunk =
 		peer.has(piece.pieceNumber) &&
 		piece.nextToDownload(peer);
-	    if (chunk)
+	    if (chunk) {
+                /* Found candidate! */
 		return chunk;
+            }
 	}
 
-	return null;
-    },
-
-    /* TODO: forceOne currently unused */
-    fillInterestingPieces: function(hintPeer, forceOne) {
 	/* these are proportional to torrent rate,
 	   to have piece stealing in time
 	*/
 	var readaheadBytes = READAHEAD_TIME * this.torrent.downRate.getRate() / 1000;
-	this.interestingPiecesThreshold = Math.max(2, Math.ceil(readaheadBytes / this.pieceLength));
-	this.piecesReadahead = 2 * this.interestingPiecesThreshold;
+	this.piecesReadahead = Math.ceil(Math.max(512 * 1024, readaheadBytes) / this.pieceLength);
+        this.interestingPiecesThreshold = 2 * this.piecesReadahead;
 
-	if (!forceOne && this.interestingPieces.length >= this.interestingPiecesThreshold)
-	    /* Don't even start working unless neccessary */
-	    return;
+        if (this.interestingPieces.length < this.interestingPiecesThreshold &&
+            (piece = this.findInterestingPiece(peer))) {
 
+            console.log("new interesting", piece);
+            this.interestingPieces.push(piece);
+            this.onPieceMissing(piece.pieceNumber);
+
+            if (!peer.has(piece.pieceNumber)) {
+                console.warn("Found interesting piece for peer who doesn't have it", peer.ip, piece.pieceNumber);
+            } else {
+                return piece.nextToDownload(peer);
+            }
+        }
+
+	return null;
+    },
+
+    findInterestingPiece: function(hintPeer) {
 	/* Build rarity map */
 	var rarity = {};
 	var i, piece;
@@ -147,6 +156,7 @@ Store.prototype = {
 		    rarity[i]++;
 	    });
 	}
+
 	/* Select by highest rarity first, or randomly */
 	var idxs = Object.keys(rarity).
             filter(function(idx) {
@@ -159,18 +169,20 @@ Store.prototype = {
 	        else
 		    return r2 - r1;
 	    });
-	for(i = 0; (forceOne || this.interestingPieces.length < this.piecesReadahead) && i < idxs.length; i++) {
-	    var idx = idxs[i];
+	for(i = 0; i < idxs.length; i++) {
+	    var idx = parseInt(idxs[i], 10);
 	    piece = this.pieces[idx];
 	    var alreadyPresent = this.interestingPieces.some(function(presentPiece) {
-		return "" + presentPiece.pieceNumber === idx;
+		return presentPiece.pieceNumber === idx;
 	    });
             if (!alreadyPresent) {
-                this.interestingPieces.push(piece);
-                this.onPieceMissing(piece.pieceNumber);
-                forceOne = false;
+                /* Found! */
+                return piece;
             }
 	}
+
+        /* None left or at peer */
+        return null;
     },
 
     onPieceMissing: function(idx) {
