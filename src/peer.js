@@ -492,11 +492,13 @@ Peer.prototype = {
             console.log("Peer", this.ip, "timeout:", chunk);
 	    /* Let so. else try it: */
 	    chunk.cancel();
-	    setTimeout(function() {
-	        this.sendCancel(piece, offset, length);
-		this.removeRequestedChunk(piece, offset, length);
-	    }.bind(this), Math.ceil(READAHEAD_TIME * 0.5));
-	}.bind(this), Math.ceil(READAHEAD_TIME * 1.5));
+	    chunk.timeout = setTimeout(function() {
+                if (this.state == 'connected') {
+	            this.sendCancel(piece, offset, length);
+		    this.removeRequestedChunk(piece, offset, length);
+                }
+	    }.bind(this), Math.ceil(READAHEAD_TIME));
+	}.bind(this), Math.ceil(READAHEAD_TIME));
 	this.requestedChunks.push(chunk);
     },
 
