@@ -150,7 +150,7 @@
 	    </tbody>
 	  </table>
 
-	  <p ng-show="torrent.peerStats.connecting > 0">
+	  <p ng-show="show.peers && torrent.peerStats.connecting > 0">
             Currently connecting to {{torrent.peerStats.connecting}}
             more peers…
           </p>
