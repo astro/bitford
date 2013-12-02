@@ -24,7 +24,6 @@ BitTorrent protocol 100% in JavaScript.
 
 ### Background
 
-* stealing by request age instead of timeouts
 * seeder peers dropping
 * Repair file saving
   * cancellable

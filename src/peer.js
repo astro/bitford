@@ -442,20 +442,22 @@ Peer.prototype = {
 	    }
 
 	    /* Work stealing */
-	    var maxReqs = 0, maxReqsIdx = null;
+            var peer;
+            var now = Date.now();
+	    var oldest = now, oldestIdx = null;
 	    for(var i = 0; i < this.torrent.peers.length; i++) {
-		var reqs = this.torrent.peers[i].requestedChunks.length;
-		if (reqs > maxReqs) {
-		    maxReqs = reqs;
-		    maxReqsIdx = i;
-		}
+                peer = this.torrent.peers[i];
+                if (peer.requestedChunks[0] &&
+                    peer.requestedChunks[0].time < oldest) {
+
+                    oldest = peer.requestedChunks[0].time;
+                    oldestIdx = i;
+                }
 	    }
-	    var peer = this.torrent.peers[maxReqsIdx];
+	    peer = this.torrent.peers[oldestIdx];
 	    if (peer &&
-                maxReqs > this.requestedChunks.length &&
                 this.downRate.bestRate > peer.downRate.bestRate) {
 
-		// console.log("peer", peer.ip, "has max reqs:", maxReqs);
                 chunk = peer.requestedChunks[peer.requestedChunks - 1];
                 if (chunk && this.has(chunk.piece)) {
                     peer.requestedChunks.pop();
@@ -482,6 +484,7 @@ Peer.prototype = {
 	msg.setUint32(9, length);
 	this.sendMessage(msg);
 
+        chunk.time = Date.now();
 	chunk.timeout = setTimeout(function() {
 	    chunk.timeout = null;
             console.log("Peer", this.ip, "timeout:", chunk);
