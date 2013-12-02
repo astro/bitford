@@ -439,38 +439,40 @@ Peer.prototype = {
 	    chunk = this.torrent.store.nextToDownload(this);
 	    if (chunk) {
 		this.request(chunk);
-	    }
-
-	    /* Work stealing */
-            var peer;
-            var now = Date.now();
-	    var oldest = now, oldestIdx = null;
-	    for(var i = 0; i < this.torrent.peers.length; i++) {
-                peer = this.torrent.peers[i];
-                if (peer.requestedChunks[0] &&
-                    peer.requestedChunks[0].time < oldest) {
-
-                    oldest = peer.requestedChunks[0].time;
-                    oldestIdx = i;
-                }
-	    }
-	    peer = this.torrent.peers[oldestIdx];
-	    if (peer &&
-                this.downRate.bestRate > peer.downRate.bestRate) {
-
-                chunk = peer.requestedChunks[peer.requestedChunks - 1];
-                if (chunk && this.has(chunk.piece)) {
-                    peer.requestedChunks.pop();
-                    if (chunk.timeout) {
-                        clearTimeout(chunk.timeout);
-                        chunk.timeout = null;
+	    } else {
+                /* Work stealing */
+                var peer;
+                var now = Date.now();
+                var oldest = now, oldestIdx = null;
+                for(var i = 0; i < this.torrent.peers.length; i++) {
+                    peer = this.torrent.peers[i];
+                    if (peer.requestedChunks[0] &&
+                        peer.requestedChunks[0].time < oldest) {
+    
+                        oldest = peer.requestedChunks[0].time;
+                        oldestIdx = i;
                     }
-                    peer.sendCancel(chunk.piece, chunk.offset, chunk.length);
-                    console.log(this.ip, "stole from", peer.ip, ":", chunk);
-                    chunk.peer = this;
-                    this.request(chunk);
                 }
-	    }
+                var age = now - oldest;
+                peer = this.torrent.peers[oldestIdx];
+                if (peer && age > READAHEAD_TIME) {
+    
+                    chunk = peer.requestedChunks[peer.requestedChunks.length - 1];
+                    if (chunk && this.has(chunk.piece)) {
+                        peer.requestedChunks.pop();
+                        if (chunk.timeout) {
+                            clearTimeout(chunk.timeout);
+                            chunk.timeout = null;
+                        }
+                        peer.sendCancel(chunk.piece, chunk.offset, chunk.length);
+                        console.log(this.ip, "stole from", peer.ip, ":", chunk, "age:", age / 1000);
+                        chunk.peer = this;
+                        this.request(chunk);
+                    } else
+                        break;
+                } else
+                    break;
+            }
 	}
     },
 
