@@ -160,7 +160,7 @@ Tracker.prototype = {
 			sock.end();
 			cb(new Error("Timeout"));
 		    }
-		}, 5);
+		}, 5000);
 	    }
 
 	    var transactionId = Math.floor(Math.pow(2,32) * Math.random());
