@@ -58,6 +58,9 @@ function Torrent(meta) {
 	this.trackers = [new TrackerGroup(this, [UTF8ArrToStr(meta.announce)])];
     else
 	console.warn("No tracker in torrent file");
+
+    /* Updated by connectPeerLoop() */
+    this.peerStats = { connected: 0, connecting: 0 };
 }
 
 Torrent.prototype = {
@@ -94,14 +97,16 @@ Torrent.prototype = {
 		candidate = peer;
 	    }
 	}
-        if (candidate && connecting < 30 && connected < 15) {
+        this.peerStats.connected = connected;
+        this.peerStats.connecting = connecting;
+        if (candidate && connecting < 120 && connected < 40) {
             /* Connect to another peer */
             candidate.connect();
             upShaper.enqueue({
                 amount: 8192,  /* 1 Connection attempt ~ 8 KB */
                 cb: this.connectPeerLoop.bind(this)
             });
-        } else if (connected > 30) {
+        } else if (connected > 80) {
             /* Disconnect from too many peers */
             setTimeout(function() {
                 var slowest = undefined;

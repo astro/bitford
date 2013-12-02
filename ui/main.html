@@ -44,7 +44,7 @@
 	</p>
 
 	<div ng-class="{ collapsed: !show.files }">
-	  <h3 ng-click="show.files = !show.files">Files</h3>
+	  <h3 ng-click="show.files = !show.files">{{torrent.files.length}} Files</h3>
 
 	  <ul class="files" ng-show="show.files">
 	    <li ng-repeat="file in torrent.files" ng-controller="TorrentFileController">
@@ -73,7 +73,7 @@
 	</div>
 
 	<div ng-class="{ collapsed: !show.trackers }">
-	  <h3 ng-click="show.trackers = !show.trackers">Trackers</h3>
+	  <h3 ng-click="show.trackers = !show.trackers">{{torrent.trackers.length}} Trackers</h3>
 
 	  <dl ng-show="show.trackers" ng-repeat="tg in torrent.trackers">
 	    <dt>
@@ -87,7 +87,7 @@
 	</div>
 
 	<div ng-class="{ collapsed: !show.peers }">
-	  <h3 ng-click="show.peers = !show.peers">Peers</h3>
+	  <h3 ng-click="show.peers = !show.peers">{{torrent.peerStats.connected}} Peers</h3>
 
 	  <table ng-show="show.peers"
 		 class="peers">
@@ -149,11 +149,16 @@
 	      </tr>
 	    </tbody>
 	  </table>
-	</div>
+
+	  <p ng-show="torrent.peerStats.connecting > 0">
+            Currently connecting to {{torrent.peerStats.connecting}}
+            more peers…
+          </p>
+        </div>
 
 
 	<div ng-class="{ collapsed: !show.pieces }">
-	  <h3 ng-click="show.pieces = !show.pieces">Pieces</h3>
+	  <h3 ng-click="show.pieces = !show.pieces">{{torrent.store.pieces.length}} Pieces</h3>
 
 	  <div class="pieces-container" ng-show="show.pieces">
 	    <div class="pieces-scroll">
@@ -177,7 +182,7 @@
 	    </p>
 	    <p>
 	      Interested in {{torrent.store.interestingPieces.length}}
-              ({{torrent.store.interestingPiecesThreshold}}…{{torrent.store.piecesReadahead}})
+              (up to {{torrent.store.interestingPiecesThreshold}})
 	      of {{torrent.store.pieces.length}}× {{humanSize(torrent.store.pieceLength)}} pieces
 	    </p>
 	  </div>

@@ -129,7 +129,7 @@ Store.prototype = {
 
             console.log("new interesting", piece);
             this.interestingPieces.push(piece);
-            this.onPieceMissing(piece.pieceNumber);
+            setTimeout(this.onPieceMissing.bind(this, piece.pieceNumber), 1);
 
             if (!peer.has(piece.pieceNumber)) {
                 console.warn("Found interesting piece for peer who doesn't have it", peer.ip, piece.pieceNumber);
@@ -261,7 +261,8 @@ Store.prototype = {
 	    }.bind(this));
 	    
 	    /* Interest for readahead */
-	    var readahead = [], piecesReadahead = this.piecesReadahead;
+	    var readahead = [];
+            var piecesReadahead = Math.max(2, this.piecesReadahead);
 	    for(i = piece.pieceNumber; piecesReadahead > 0 && i < this.pieces.length; i++) {
 		if (!this.pieces[i].valid) {
 		    piecesReadahead--;

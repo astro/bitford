@@ -24,7 +24,6 @@ BitTorrent protocol 100% in JavaScript.
 
 ### Background
 
-* simplify interestingPieces picking (just max no min limit)
 * stealing by request age instead of timeouts
 * seeder peers dropping
 * Repair file saving
@@ -34,7 +33,7 @@ BitTorrent protocol 100% in JavaScript.
 * store-backend: unify open bitford-store
 * Tracker event
 * Smarter request selection, based on downRate * requestedChunks.length
-* Priorities & unchoke buckets
+* Priorities & unchoke buckets, Tit-for-tat
 * Peer connections should wait for store recovery progress
 * Profiling, profiling, optimization
 
