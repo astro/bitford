@@ -216,8 +216,9 @@ app.controller('TorrentFileController', function($scope) {
 	    $scope.$digest();
 	});
     };
-    $scope.canViewImage = /^image\//.test(mimeType);
-    $scope.viewImageButton = function(path) {
+    $scope.canView = /^image\//.test(mimeType) ||
+        mimeType === "text/html";
+    $scope.viewButton = function(path) {
 	if ($scope.imageURL) {
 	    $scope.imageURL = null;
 	    return;

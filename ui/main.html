@@ -53,8 +53,8 @@
 	      <button ng-click="saveButton()" ng-disabled="saving">Save</button>
 	      <button ng-show="canPlay"
 		      ng-click="playButton()">Play</button>
-	      <button ng-show="canViewImage"
-		      ng-click="viewImageButton()">View</button>
+	      <button ng-show="canView"
+		      ng-click="viewButton()">View</button>
 	      <div ng-show="videoURL || audioURL" class="video-container">
 		<video ng-show="videoURL"
 	               controls autoplay

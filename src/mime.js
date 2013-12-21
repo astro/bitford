@@ -16,7 +16,8 @@ var MIME_TYPES = {
     "opus": "audio/opus",
     "gif": "image/gif",
     "jpg": "image/jpeg",
-    "png": "image/png"
+    "png": "image/png",
+    "html": "text/html"
 };
 
 function getMimeType(path) {
