@@ -137,6 +137,10 @@ header h1 {
     color: #777;
     padding-right: 2em;
 }
+.torrent .files .save-container {
+    list-style-type: none;
+    padding: 0;
+}
 .torrent .video-container {
     display: block;
     width: 100%;

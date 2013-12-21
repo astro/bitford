@@ -11,28 +11,16 @@ createHTTPServer(function(req, res) {
 	torrentName = path[0];
     console.log("torrentName", torrentName, "path", path);
 
-    var size, offset;
-    for(var i = 0; i < torrents.length; i++) {
-	var torrent = torrents[i];
+    var torrent, pos;
+    for(var i = 0; !pos && i < torrents.length; i++) {
+	torrent = torrents[i];
 	if (torrent.name !== torrentName)
 	    continue;
-	offset = 0;
-	for(var j = 0; j < torrent.files.length; j++) {
-	    var file = torrent.files[j];
-	    if (arrayEq(file.path, path)) {
-		size = file.size;
-		break;
-	    }
-	    offset += file.size;
-	    file = undefined;
-	}
-	if (file)
-	    break;
-	torrent = undefined;
+        pos = torrent.findFilePosition(path);
     }
-    if (torrent && file) {
+    if (torrent && pos) {
 	var contentType = getMimeType(path);
-    	handleStreamRequest(req, res, contentType, offset, size, torrent);
+    	handleStreamRequest(req, res, contentType, pos.offset, pos.size, torrent);
     } else {
     	res.writeHead(404, "Not found", {});
     	res.end();

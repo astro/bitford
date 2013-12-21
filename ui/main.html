@@ -57,11 +57,22 @@
 	    <li ng-repeat="file in torrent.files" ng-controller="TorrentFileController">
 	      <h4>{{file.path.join("/")}}</h4>
 	      <p class="size">{{humanSize(file.size)}}</p>
-	      <button ng-click="saveButton()" ng-disabled="saving">Save</button>
+	      <button ng-click="saveButton()">Save</button>
 	      <button ng-show="canPlay"
 		      ng-click="playButton()">Play</button>
 	      <button ng-show="canView"
 		      ng-click="viewButton()">View</button>
+              <ul class="save-container"
+		  ng-show="file.saveProgresses">
+                <li ng-repeat="progress in file.saveProgresses"
+                    class="saveProgress">
+                  Saving file…
+                  <progress value="{{progress.bytes}}"
+                            max="{{progress.size}}">
+                    {{progress.percent}}%
+                  </progress>
+                </li>
+              </ul>
 	      <div ng-show="videoURL || audioURL" class="video-container">
 		<video ng-show="videoURL"
 	               controls autoplay

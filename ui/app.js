@@ -231,49 +231,61 @@ app.controller('TorrentFileController', function($scope) {
 	    $scope.$digest();
 	});
     };
-    $scope.saveButton = function(path) {
-	var size = $scope.torrent.files.filter(function(file) {
-	    return file.path == path;
-	}).map(function(file) {
-	    return file.size;
-	})[0];
-
+    $scope.saveButton = function() {
 	chrome.fileSystem.chooseEntry({
 	    type: 'saveFile',
-	    suggestedName: path[path.length - 1]
+	    suggestedName: $scope.file.path[$scope.file.path.length - 1]
 	}, function(entry) {
 	    if (!entry)
 		return;
 
+            var pos = $scope.torrent.findFilePosition($scope.file.path);
+            console.log("findFilePosition", $scope.file.path);
+            var progress = {
+                bytes: 0,
+                percent: 0,
+                size: pos.size
+            };
+            if (!pos.file.saveProgresses)
+                pos.file.saveProgresses = [];
+            pos.file.saveProgresses.push(progress);
+            var stopProgress = function() {
+                var pp = pos.file.saveProgresses.indexOf(progress);
+                if (pp >= 0) {
+                    pos.file.saveProgresses.splice(pp, 1);
+                    if (pos.file.saveProgresses.length < 1)
+                        delete pos.file.saveProgresses;
+                }
+            };
 	    entry.createWriter(function(writer) {
 		writer.truncate(0);
 
-		$scope.$apply(function() {
-		    $scope.saving = true;
-		});
-		var bytes = 0;
 		function loop() {
-		    if (bytes >= size) {
+		    if (progress.bytes >= progress.size) {
 			$scope.$apply(function() {
-			    $scope.saving = false;
+                            stopProgress();
 			});
 			return;
 		    }
 
-		    $scope.torrent.store.consumeFile(path, bytes, function(data) {
+		    $scope.torrent.store.consume(pos.offset + progress.bytes, function(data) {
+                        console.log("data", data.byteLength);
 			if (data.byteLength > 0) {
+                            if (data.byteLength > progress.size - progress.bytes)
+                                data = data.slice(0, progress.size - progress.bytes);
 			    writer.onwriteend = function() {
-				bytes += data.byteLength;
-				console.log("written",bytes,"bytes for", entry, writer);
+				progress.bytes += data.byteLength;
+				console.log("written",progress.bytes,"bytes for", entry, writer);
 				loop();
 			    };
 			    writer.onerror = function(error) {
 				console.error("write", error);
+                                stopProgress();
 			    };
 			    writer.write(new Blob([data]));
 			} else
 			    $scope.$apply(function() {
-				$scope.saving = false;
+                                stopProgress();
 			    });
 		    });
 		}

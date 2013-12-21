@@ -194,5 +194,28 @@ Torrent.prototype = {
 
 	// TODO: tell trackers
 	this.mayDisconnectPeers();
+    },
+
+    /**
+     * Helper for users of store.consume()
+     **/
+    findFilePosition: function(path) {
+	var offset = 0, file, size;
+	for(var i = 0; i < this.files.length; i++) {
+	    var file = this.files[i];
+	    if (arrayEq(file.path, path)) {
+		break;
+	    } else {
+	        offset += file.size;
+	        file = undefined;
+            }
+	}
+        if (file) {
+            return {
+                file: file,
+                offset: offset,
+                size: file.size
+            };
+        }
     }
 };
