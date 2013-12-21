@@ -32,6 +32,8 @@ function Peer(torrent, info) {
     this.inPiecesProcessing = 0;
     this.upRate = new RateEstimator();
     this.downRate = new RateEstimator();
+    this.bytesUploaded = 0;
+    this.bytesDownloaded = 0;
     this.pendingChunks = [];
     // We in them
     this.interesting = false;
@@ -310,6 +312,7 @@ Peer.prototype = {
 	/* Write & resume */
 	if (data && data.length > 0) {
 	    this.downRate.add(data.length);
+            this.bytesDownloaded += data.length;
 	    this.torrent.recvData(piece, offset, data, onProcessed);
 	} else
 	    onProcessed();
@@ -417,6 +420,7 @@ Peer.prototype = {
 			this.upRate.add(data.length);
 			this.torrent.upRate.add(data.length);
 			this.torrent.bytesUploaded += data.length;
+                        this.bytesUploaded += data.length;
 		    }.bind(this));
 		}
 	    }
