@@ -7,18 +7,14 @@ function RateShaper(rate) {
 
 RateShaper.prototype = {
     enqueue: function(item) {
-        if (this.rate <= 0) {
-            item.cb();
+        if (!this.next) {
+            this.next = item;
+            this.last = item;
         } else {
-            if (!this.next) {
-                this.next = item;
-                this.last = item;
-            } else {
-                this.last.next = item;
-                this.last = item;
-            }
-            this.tick();
+            this.last.next = item;
+            this.last = item;
         }
+        this.tick();
     },
 
     tick: function() {
