@@ -29,21 +29,28 @@
 	</p>
 	<h2>{{torrent.name}}</h2>
 	<button class="remove" ng-click="removeButton()">Remove</button>
-	<p class="stats" ng-hide="torrent.seeding">
+        <p class="recover-container"
+           ng-show="torrent.store.backend.recovered">
+          Recovering data…
+          <progress value="{{torrent.store.backend.recovered}}"
+                    max="{{torrent.store.size}}">
+          </progress>
+        </p>
+	<p class="stats" ng-hide="torrent.seeding || torrent.store.backend.recovered">
 	  {{humanSize(torrent.upRate.getRate())}}/s up,
           {{humanSize(torrent.downRate.getRate())}}/s down
 	</p>
-	<p class="stats" ng-hide="torrent.seeding">
+	<p class="stats" ng-hide="torrent.seeding || torrent.store.backend.recovered">
 	    ETA: {{estimateTime(torrent)}}
 	</p>
-	<p class="stats" ng-show="torrent.seeding">
+	<p class="stats" ng-show="torrent.seeding && !torrent.store.backend.recovered">
 	  {{humanSize(torrent.upRate.getRate())}}/s up
 	</p>
-	<p class="stats" ng-show="torrent.seeding">
+	<p class="stats" ng-show="torrent.seeding && !torrent.store.backend.recovered">
 	  Ratio: {{ratio(torrent)}}
 	</p>
 
-	<div ng-class="{ collapsed: !show.files }">
+	<div ng-class="{ collapsed: !show.files }" ng-hide="torrent.store.backend.recovered">
 	  <h3 ng-click="show.files = !show.files">{{torrent.files.length}} Files</h3>
 
 	  <ul class="files" ng-show="show.files">
@@ -72,7 +79,7 @@
 	  </ul>
 	</div>
 
-	<div ng-class="{ collapsed: !show.trackers }">
+	<div ng-class="{ collapsed: !show.trackers }" ng-hide="torrent.store.backend.recovered">
 	  <h3 ng-click="show.trackers = !show.trackers">{{torrent.trackers.length}} Trackers</h3>
 
 	  <dl ng-show="show.trackers" ng-repeat="tg in torrent.trackers">
@@ -86,7 +93,7 @@
 	  </dl>
 	</div>
 
-	<div ng-class="{ collapsed: !show.peers }">
+	<div ng-class="{ collapsed: !show.peers }" ng-hide="torrent.store.backend.recovered">
 	  <h3 ng-click="show.peers = !show.peers">{{torrent.peerStats.connected}} Peers</h3>
 
 	  <table ng-show="show.peers"

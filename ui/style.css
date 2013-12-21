@@ -80,6 +80,10 @@ header h1 {
 .torrent .remove {
     float: right;
 }
+.torrent .recover-container {
+    margin: 0.1em 0;
+    background-color: #ffc;
+}
 .torrent .stats {
     font-size: 90%;
     color: #777;

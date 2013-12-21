@@ -66,6 +66,7 @@ StoreBackend.prototype = {
 	if (typeof start !== 'number')
 	    start = 0;
 
+        this.recovered = start;
 	var offset, data;
 	this.transaction("readonly", function(objectStore) {
 	    var req = objectStore.openCursor(
@@ -93,6 +94,7 @@ StoreBackend.prototype = {
 		    this.recover(offset + 1);
 		}
 	    } else {
+                delete this.recovered;
                 this.onRecoveryDone();
             }
 	}.bind(this));
