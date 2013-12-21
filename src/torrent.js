@@ -99,26 +99,26 @@ Torrent.prototype = {
 	}
         this.peerStats.connected = connected;
         this.peerStats.connecting = connecting;
-        if (candidate && connecting < 120 && connected < 40) {
+        if (candidate && connecting < 80 && connected < 60) {
             /* Connect to another peer */
             candidate.connect();
             upShaper.enqueue({
                 amount: 8192,  /* 1 Connection attempt ~ 8 KB */
                 cb: this.connectPeerLoop.bind(this)
             });
-        } else if (connected > 80) {
+        } else if (connected > 40) {
             /* Disconnect from too many peers */
             setTimeout(function() {
-                var slowest = undefined;
                 candidate = undefined;
                 this.peers.forEach(function(peer) {
-                    if (typeof slowest == 'undefined' ||
-                        peer.downRate.getRate() < slowest)
+                    if (!candidate ||
+                        peer.downRate.getRate() < candidate.downRate.getRate()) {
 
                         candidate = peer;
+                    }
                 });
-                if (peer)
-                    peer.end();
+                if (candidate)
+                    candidate.end();
 
                 this.connectPeerLoop();
             }.bind(this), 1000);
