@@ -26,16 +26,17 @@ RateShaper.prototype = {
             this.timeout = setTimeout(function() {
                 this.timeout = null;
                 this.tick();
-            }.bind(this), this.nextTick - now);
+            }.bind(this), Math.ceil(this.nextTick - now));
         } else {
             var item = this.next;
             this.next = item.next;
             if (!this.next)
                 this.last = null;
 
-            if (this.rate > 0)
-                this.nextTick = now + 1000 * item.amount / this.rate;
-            else
+            if (this.rate > 0) {
+                var penalty = now - this.nextTick;
+                this.nextTick = now + Math.max(0, 1000 * item.amount / this.rate - penalty);
+            } else
                 this.nextTick = now;
 
             try {
