@@ -70,6 +70,8 @@ Torrent.prototype = {
         });
 
         this.connectPeerLoop();
+        this.unchokeInterval = setInterval(
+            this.tickUnchoke, 10000);
     },
 
     end: function() {
@@ -77,6 +79,10 @@ Torrent.prototype = {
 	    console.log("stop tg", tg);
 	    tg.stop();
 	});
+        if (this.unchokeInterval) {
+            clearInterval(this.unchokeInterval);
+            this.unchokeInterval = null;
+        }
 	this.peers.forEach(function(peer) {
 	    console.log("end peer", peer);
 	    peer.end();
@@ -141,6 +147,34 @@ Torrent.prototype = {
 		    peer.end();
 	    });
 	}
+    },
+
+    uploadSlots: 4,
+
+    tickUnchoke: function() {
+        var byScore = this.peers.filter(function(peer) {
+            return peer.state === 'connected';
+        }).sort(function(peer1, peer2) {
+            var s1 = peer1.bytesDownloaded - peer1.bytesUploaded;
+            var s2 = peer2.bytesDownloaded - peer2.bytesUploaded;
+            if (s1 > s2)
+                return -1;
+            else if (s1 < s2)
+                return 1;
+            else
+                return 0;
+        });
+        var peer;
+        for(var i = 0; i < this.uploadSlots && i < byScore.length; i++) {
+            peer = byScore[i];
+            if (peer.choking)
+                peer.unchoke();
+        }
+        for(; i < byScore.length; i++) {
+            peer = byScore[i];
+            if (!peer.choking)
+                peer.choke();
+        }
     },
 
     getBitfield: function() {

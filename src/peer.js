@@ -184,13 +184,11 @@ Peer.prototype = {
 		 **/
 		this.bitfield = new Uint8Array(Math.ceil(this.torrent.pieces / 8));
 
-		this.sendBitfield();
-		/* Interested */
-		this.interesting = true;
-		this.sendMessage(new Message([2]));
-		/* Unchoke by default */
-		this.choking = false;
-		this.sendMessage(new Message([1]));
+                this.sendBitfield();
+                /* Interested */
+                this.interesting = true;
+                this.sendMessage(new Message([2]));
+                /* Choked by default */
 	    } else if (this.state === 'connected' && !this.messageSize && this.buffer.length >= 4) {
 		this.messageSize = this.buffer.getWord32BE(0);
 		// console.log(this.ip, "messageSize", this.messageSize);
@@ -504,6 +502,17 @@ Peer.prototype = {
 	    }.bind(this), Math.ceil(READAHEAD_TIME));
 	}.bind(this), Math.ceil(READAHEAD_TIME));
 	this.requestedChunks.push(chunk);
+    },
+
+    choke: function() {
+        this.choking = true;
+        this.pendingChunks = [];
+        this.sendMessage(new Message([0]));
+    },
+
+    unchoke: function() {
+        this.choking = false;
+        this.sendMessage(new Message([1]));
     },
 
     sendCancel: function(piece, offset, length) {
