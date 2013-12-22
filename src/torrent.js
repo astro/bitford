@@ -71,7 +71,7 @@ Torrent.prototype = {
 
         this.connectPeerLoop();
         this.unchokeInterval = setInterval(
-            this.tickUnchoke, 10000);
+            this.tickUnchoke.bind(this), 10000);
     },
 
     end: function() {
@@ -153,7 +153,9 @@ Torrent.prototype = {
 
     tickUnchoke: function() {
         var byScore = this.peers.filter(function(peer) {
-            return peer.state === 'connected';
+            return peer.state === 'connected' &&
+                !peer.seeder &&
+                peer.interested;
         }).sort(function(peer1, peer2) {
             var s1 = peer1.bytesDownloaded - peer1.bytesUploaded;
             var s2 = peer2.bytesDownloaded - peer2.bytesUploaded;
