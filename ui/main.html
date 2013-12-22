@@ -124,9 +124,9 @@
 	      <tr ng-repeat="peer in torrent.peers"
 		  ng-show="peer.state == 'connected'">
 		<td>
-		  <span ng-show="peer.direction == 'incoming'" title="Incoming">From</span>
-		  <span ng-show="peer.direction == 'outgoing'" title="Outgoing">To</span>
-		  {{peer.ip}}:{{peer.port}}
+		  <span ng-show="peer.direction == 'incoming'" title="Incoming">←</span>
+		  <span ng-show="peer.direction == 'outgoing'" title="Outgoing">→</span>
+		  {{peer.ip}}
 		</td>
 		<td>{{peerIdToClient(peer.peerId)}}</td>
 		<td ng-switch="peer.state">
