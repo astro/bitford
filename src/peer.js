@@ -138,7 +138,9 @@ Peer.prototype = {
 	if (this.sock) {
 	    this.sock.pause();
 	    this.downShaped = true;
-	}
+	} else
+            return;
+
 	downShaper.enqueue({
 	    amount: data.byteLength,
 	    cb: function() {
@@ -449,7 +451,8 @@ Peer.prototype = {
                 for(var i = 0; i < this.torrent.peers.length; i++) {
                     peer = this.torrent.peers[i];
                     if (peer.requestedChunks[0] &&
-                        peer.requestedChunks[0].time < oldest) {
+                        peer.requestedChunks[0].time < oldest &&
+                        peer.ip !== this.ip) {
     
                         oldest = peer.requestedChunks[0].time;
                         oldestIdx = i;
