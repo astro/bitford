@@ -160,7 +160,7 @@
 		    {{peer.state}}<span ng-show="peer.error">: {{peer.error}}</span>
 		  </span>
 		</td>
-		<td>{{peer.getDonePercent()}}</td>
+		<td>{{peer.getDonePercent()}}%</td>
 		<td title="{{humanSize(peer.bytesUploaded)}} total">{{humanSize(peer.upRate.getRate())}}/s</td>
 		<td title="{{humanSize(peer.bytesDownloaded)}} total">{{humanSize(peer.downRate.getRate())}}/s</td>
 		<td>{{peer.requestedChunks.length}}↓ {{peer.pendingChunks.length}}↑</td>

@@ -1,4 +1,4 @@
-var READAHEAD_TIME = 5000;
+var READAHEAD_TIME = 3000;
 
 var requestFileSystem_ = window.requestFileSystem ||
     window.webkitRequestFileSystem;

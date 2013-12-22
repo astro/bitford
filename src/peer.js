@@ -322,7 +322,7 @@ Peer.prototype = {
 	if (this.donePercent)
 	    return this.donePercent;
 	if (!this.bitfield)
-	    return "";
+	    return 0;
 
 	var present = 0;
 	for(var i = 0; i < this.bitfield.length; i++) {
@@ -334,7 +334,7 @@ Peer.prototype = {
 		    if (b & (1 << j))
 			present++;
 	}
-	this.donePercent = Math.floor(100 * Math.min(1, present / this.torrent.pieces)) + "%";
+	this.donePercent = Math.floor(100 * Math.min(1, present / this.torrent.pieces));
 	return this.donePercent;
     },
 
