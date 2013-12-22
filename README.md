@@ -20,20 +20,14 @@ BitTorrent protocol 100% in JavaScript.
 
 ### UI
 
-* Display file saving progress
-
 ### Background
 
 * seeder peers dropping
-* Repair file saving
-  * cancellable
-  * no excess bytes
+* cancellable file saving
+* Priorities
 * Error handling
 * store-backend: unify open bitford-store
-* Tracker event
 * Smarter request selection, based on downRate * requestedChunks.length
-* Priorities & unchoke buckets, Tit-for-tat
-* Peer connections should wait for store recovery progress
 * Profiling, profiling, optimization
 
 ### Unsolved
