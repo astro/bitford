@@ -6,8 +6,21 @@ function TrackerGroup(torrent, urls) {
 }
 TrackerGroup.prototype = {
     start: function() {
+        this.request('started');
+    },
+
+    stop: function() {
+        this.request('stopped');
+    },
+
+    request: function(event) {
+        if (this.timeout) {
+            clearTimeout(this.timeout);
+            this.timeout = null;
+        }
+
 	this.nextReq = 'now';
-	this.trackers[0].request(function(error, response) {
+	this.trackers[0].request(event, function(error, response) {
 	    /* Rotate in group */
 	    this.trackers.push(this.trackers.shift());
 
@@ -44,36 +57,29 @@ TrackerGroup.prototype = {
 
 	    var interval = (response && response.interval || 30 + 30 * Math.random()) * 1000;
 	    this.nextReq = Date.now() + interval;
-	    this.timeout = setTimeout(this.start.bind(this), Math.ceil(interval));
+            if (this.timeout)
+                clearTimeout(this.timeout);
+            if (event !== 'stopped')
+	        this.timeout = setTimeout(this.start.bind(this), Math.ceil(interval));
 	}.bind(this));
-    },
-
-    stop: function() {
-	// TODO: do event req
-	if (this.timeout) {
-	    this.nextReq = null;
-	    clearTimeout(this.timeout);
-	    this.timeout = null;
-	}
     }
 };
 
 function Tracker(torrent, url) {
     this.url = url;
     this.torrent = torrent;
-    this.started = true;
 }
 Tracker.prototype = {
-    request: function(cb) {
+    request: function(event, cb) {
 	var m;
 
 	if ((/^https?:\/\//.test(this.url)))
-	    return this.requestHTTP(cb);
+	    return this.requestHTTP(event, cb);
 	else if ((m = this.url.match(/^udp:\/\/([^:]+):(\d+)/)))
-	    return this.requestUDP(m[1], parseInt(m[2]), cb);
+	    return this.requestUDP(event, m[1], parseInt(m[2]), cb);
     },
 
-    requestHTTP: function(cb) {
+    requestHTTP: function(event, cb) {
 	var onResponse = function(error, result) {
 	    this.error = null;
 
@@ -98,9 +104,8 @@ Tracker.prototype = {
 	    left: this.torrent.store.getBytesLeft(),
 	    compact: 1
 	};
-        if (this.started) {
-	    this.started = false;
-	    query.event = 'started';
+        if (event) {
+	    query.event = event;
 	}
 
         var queryStrs = [];
@@ -131,7 +136,7 @@ Tracker.prototype = {
         xhr.send();
     },
 
-    requestUDP: function(address, port, cb) {
+    requestUDP: function(event, address, port, cb) {
 	var infoHash = this.torrent.infoHash,
 	    peerId = this.torrent.peerId,
 	    torrent = this.torrent;
@@ -190,7 +195,7 @@ Tracker.prototype = {
 		    0, 0, 0, 0, 0, 0, 0, 0,  /* downloaded */
 		    0, 0, 0, 0, 0, 0, 0, 0,  /* left */
 		    0, 0, 0, 0, 0, 0, 0, 0,  /* uploaded */
-		    0, 0, 0, 2,  /* TODO: event */
+		    0, 0, 0, 0,  /* event */
 		    0, 0, 0, 0,  /* ip */
 		    0, 0, 0, 0,  /* TODO: key */
 		    0xff, 0xff, 0xff, 0xff,  /* num_want */
@@ -215,6 +220,14 @@ Tracker.prototype = {
 		d.setUint32(68, bytesLeft & 0xffffffff);
 		d.setUint32(72, torrent.bytesUploaded >> 32);
 		d.setUint32(76, torrent.bytesUploaded & 0xffffffff);
+                var eventCode = 0;
+                if (event === 'completed')
+                    eventCode = 1;
+                else if (event === 'started')
+                    eventCode = 2;
+                else if (event === 'stopped')
+                    eventCode = 3;
+                d.setUint32(80, eventCode);
 		send(announceReq, function(announceRes) {
 		    var d = new DataView(announceRes);
 		    if (d.byteLength >= 20 &&

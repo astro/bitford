@@ -76,7 +76,6 @@ Torrent.prototype = {
 
     end: function() {
 	this.trackers.forEach(function(tg) {
-	    console.log("stop tg", tg);
 	    tg.stop();
 	});
         if (this.unchokeInterval) {
@@ -228,7 +227,11 @@ Torrent.prototype = {
 	    return;
 	this.seeding = true;
 
-	// TODO: tell trackers
+	// tell trackers
+        this.trackers.forEach(function(tg) {
+            tg.request('completed');
+        });
+
 	this.mayDisconnectPeers();
     },
 
