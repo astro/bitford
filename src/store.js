@@ -355,7 +355,7 @@ StorePiece.prototype = {
 	if (length < 1)
 	    cb();
 	else {
-            var result = new BufferList(bufs);
+            var result = new BufferList();
             var read = function(offset, length) {
 	        this.store.backend.read(
 		    this.pieceNumber * this.store.pieceLength + offset,
