@@ -498,7 +498,6 @@ StorePiece.prototype = {
 	    this.store.onPieceMissing(this.pieceNumber);
 	} else {
 	    /* Hash checked: validate */
-	    console.log("onValid", this.pieceNumber);
 	    this.store.onPieceValid(this.pieceNumber);
 	    var onValidCbs = this.onValidCbs;
 	    this.onValidCbs = [];
@@ -536,7 +535,7 @@ StorePiece.prototype = {
 	}
 	if (i >= this.chunks.length) {
 	    /* All done */
-	    console.log("Piece", this.pieceNumber, "seems fully persisted");
+	    // console.log("Piece", this.pieceNumber, "seems fully persisted");
 	    return cb();
 	}
 	/* i now points to the first chunk that has data */
