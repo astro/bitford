@@ -123,11 +123,12 @@ Store.prototype = {
 	var readaheadBytes = READAHEAD_TIME * this.torrent.downRate.getRate() / 1000;
 	this.piecesReadahead = Math.ceil(Math.max(512 * 1024, readaheadBytes) / this.pieceLength);
         this.interestingPiecesThreshold = 2 * this.piecesReadahead;
+        var t1 = Date.now();
 
         if (this.interestingPieces.length < this.interestingPiecesThreshold &&
             (piece = this.findInterestingPiece(peer))) {
-
-            console.log("new interesting", piece);
+            var t2 = Date.now();
+            console.log("new interesting", piece, "in", t2 - t1, "ms");
             this.interestingPieces.push(piece);
             setTimeout(this.onPieceMissing.bind(this, piece.pieceNumber), 1);
 
@@ -136,7 +137,8 @@ Store.prototype = {
             } else {
                 return piece.nextToDownload(peer);
             }
-        }
+        } else
+            console.log("cannot find interesting pieces for", peer.ip, "currently:", this.interestingPieces.length, "/", this.interestingPiecesThreshold);
 
 	return null;
     },
@@ -181,7 +183,16 @@ Store.prototype = {
             }
 	}
 
-        /* None left or at peer */
+        /* No rare piece left or at peer,
+           search linearly: */
+        for(i = 0; i < this.pieces.length; i++) {
+            if (hintPeer.has(i))
+                return this.pieces[i];
+        }
+
+        /* Peer has nothing for us
+           TODO: work on interested state
+        */
         return null;
     },
 
