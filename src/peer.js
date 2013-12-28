@@ -9,7 +9,9 @@ function servePeer(sock, cb) {
 	    peer.direction = 'incoming';
 	    peer.onHandshaked = function() {
 		cb(peer);
-		peer.sendHandshake();
+                if (peer.sock)
+                    /* Not yet closed? */
+		    peer.sendHandshake();
 	    };
 	    peer.setSock(sock);
 	    peer.state = 'handshake';
