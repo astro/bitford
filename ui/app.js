@@ -72,10 +72,14 @@ app.directive('piecesCanvas', function() {
 		for(var x = 0; x < pieces.length; x++) {
 		    var x1 = Math.floor(canvas.width * x / pieces.length);
 		    var x2 = Math.floor(canvas.width * (x + 1) / pieces.length);
+                    var requested = $scope.torrent.store.interestingPieces.some(function(piece) {
+                        return piece.pieceNumber === x;
+                    });
+                    var missingColor = requested ? "#ddd" : "#ccc";
 		    if (!pieces[x].chunks.some(function(chunk) {
 							  return chunk.state !== 'missing';
 						      })) {
-			ctx.fillStyle = "#ccc";
+			ctx.fillStyle = missingColor;
 			ctx.fillRect(x1, 0, x2, canvas.height);
 		    } else
 			pieces[x].chunks.forEach(function(chunk) {
@@ -83,7 +87,7 @@ app.directive('piecesCanvas', function() {
 			    var y2 = canvas.height * (chunk.offset + chunk.length) / pieceLength;
 			    switch(chunk.state) {
 				case 'missing':
-				    ctx.fillStyle = "#ccc";
+				    ctx.fillStyle = missingColor;
 				    break;
 				case 'requested':
 				    ctx.fillStyle = "#f77";
