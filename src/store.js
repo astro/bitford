@@ -95,11 +95,19 @@ Store.prototype = {
 	});
     },
 
-    isInterestedIn: function(peer) {
+    isInterestedInPeer: function(peer) {
 	for(var i = 0; i < this.pieces.length; i++) {
 	    var piece = this.pieces[i];
 	    if (!piece.valid && peer.has(i))
 		return true;
+	}
+	return false;
+    },
+
+    isCurrentlyInterestedInPiece: function(pieceNumber) {
+	for(var i = 0; i < this.interestingPieces.length; i++) {
+            if (this.interestingPieces[i].pieceNumber === pieceNumber)
+                return true;
 	}
 	return false;
     },
@@ -161,9 +169,6 @@ Store.prototype = {
 
 	/* Select by highest rarity first, or randomly */
 	var idxs = Object.keys(rarity).
-            filter(function(idx) {
-                return rarity[idx] > 0;
-            }).
             sort(function(idx1, idx2) {
 	        var r1 = rarity[idx1], r2 = rarity[idx2];
 	        if (r1 === r2)
@@ -174,21 +179,11 @@ Store.prototype = {
 	for(i = 0; i < idxs.length; i++) {
 	    var idx = parseInt(idxs[i], 10);
 	    piece = this.pieces[idx];
-	    var alreadyPresent = this.interestingPieces.some(function(presentPiece) {
-		return presentPiece.pieceNumber === idx;
-	    });
-            if (!alreadyPresent) {
+            if (!this.isCurrentlyInterestedInPiece(idx)) {
                 /* Found! */
                 return piece;
             }
 	}
-
-        /* No rare piece left or at peer,
-           search linearly: */
-        for(i = 0; i < this.pieces.length; i++) {
-            if (hintPeer.has(i))
-                return this.pieces[i];
-        }
 
         /* Peer has nothing for us
            TODO: work on interested state
@@ -332,7 +327,12 @@ function StorePiece(store, pieceNumber, pieceLength, expectedHash) {
     this.onValidCbs = [];
 }
 StorePiece.prototype = {
+    /* TODO: simplify, all chunks are equally sized now */
     nextToDownload: function(peer) {
+        if (this.valid)
+            /* No need to */
+            return null;
+
 	var result, requestedChunks = [];
 	for(var i = 0; i < this.chunks.length && (!result || result.length < CHUNK_LENGTH); i++) {
 	    var chunk = this.chunks[i];

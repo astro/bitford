@@ -351,7 +351,7 @@ Peer.prototype = {
     onUpdateBitfield: function() {
 	this.donePercent = null;
 
-	var interesting = this.torrent.store.isInterestedIn(this);
+	var interesting = this.torrent.store.isInterestedInPeer(this);
 	if (interesting && !this.interesting) {
 	    /* Change triggered */
 	    this.interesting = true;
