@@ -319,7 +319,7 @@ Peer.prototype = {
             this.bytesDownloaded += data.length;
 	    this.torrent.recvData(piece, offset, data, onProcessed);
 	} else
-	    onProcessed();
+            setTimeout(onProcessed, 1);
 
 	this.canRequest();
     },

@@ -22,7 +22,7 @@ RateShaper.prototype = {
             return;
 
         var now = Date.now();
-        if (this.rate > 0 && now < this.nextTick) {
+        if (now < this.nextTick) {
             this.timeout = setTimeout(function() {
                 this.timeout = null;
                 this.tick();
@@ -37,7 +37,7 @@ RateShaper.prototype = {
                 var penalty = now - this.nextTick;
                 this.nextTick = now + Math.max(0, 1000 * item.amount / this.rate - penalty);
             } else
-                this.nextTick = now;
+                this.nextTick = now + 1;
 
             try {
                 item.cb();

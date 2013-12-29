@@ -124,6 +124,7 @@ StoreBackend.prototype = {
     },
 
     read: function(offset, cb) {
+        /* TODO: queue up and fill */
         var data;
 	this.transaction("readonly", function(objectStore) {
 	    var req = objectStore.openCursor(

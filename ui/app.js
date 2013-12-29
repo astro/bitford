@@ -164,15 +164,9 @@ app.controller('TorrentController', function($scope) {
 	}
     };
 
-    function tick() {
-	setTimeout(function() {
-	    $scope.$apply(function() {
-		$scope.isMultiFile = $scope.torrent.files.length > 1;
-	    });
-	    tick();
-	}, 100);
-    }
-    tick();
+    $scope.$watch(function() {
+	$scope.isMultiFile = $scope.torrent.files.length > 1;
+    });
 
     $scope.show = {
 	files: true,
