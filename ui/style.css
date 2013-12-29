@@ -170,6 +170,13 @@ header h1 {
     margin: 0;
     padding: 0.2em 0.5em;
 }
+.torrent .peers .state {
+    font-family: monospace;
+}
+.torrent .peers .choking .queuestats .up,
+.torrent .peers .choked .queuestats .down {
+    color: #ccc;
+}
 .torrent .peers tbody tr:hover {
     background-color: #ddd;
 }
