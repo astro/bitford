@@ -163,7 +163,7 @@ Torrent.prototype = {
             else if (s1 < s2)
                 return 1;
             else
-                return 0;
+                return (Math.random() < 0.5) ? -1 : 1;
         });
         var peer;
         for(var i = 0; i < this.uploadSlots && i < byScore.length; i++) {
