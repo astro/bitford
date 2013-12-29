@@ -293,6 +293,7 @@ Store.prototype = {
 		/* Attempting to write to valid piece
                  * (possibly timed out and requested with another peer)
                  */
+                cb();
 		return;
 	    }
 
