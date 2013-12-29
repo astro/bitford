@@ -367,15 +367,21 @@ StorePiece.prototype = {
 	    cb();
 	else {
             var result = new BufferList();
+            var stack = new Error("Empty read for " + offset + "+" + length).stack;
             var read = function(offset, length) {
 	        this.store.backend.read(
 		    this.pieceNumber * this.store.pieceLength + offset,
 		    function(data) {
+                        if (!data || data.byteLength < 1) {
+                            console.error(stack);
+                            return cb();
+                        }
+
                         if (data.byteLength > length)
                             data = data.slice(0, length);
                         result.append(data);
 
-                        if (length > data.byteLength) {
+                        if (length > data.byteLength && data.byteLength > 0) {
                             read(offset + data.byteLength, length - data.byteLength);
                         } else {
                             result.readAsArrayBuffer(cb);

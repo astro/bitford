@@ -124,16 +124,27 @@ StoreBackend.prototype = {
     },
 
     read: function(offset, cb) {
+        var data;
 	this.transaction("readonly", function(objectStore) {
-	    var req = objectStore.get(this.key(offset));
+	    var req = objectStore.openCursor(
+                IDBKeyRange.bound(this.key(0), this.key(offset)),
+                'prev'
+            );
 	    req.onsuccess = function(event) {
-		cb(req.result);
-	    };
+                var cursor = event.target.result;
+                if (cursor && cursor.key.indexOf(this.basename + ".") === 0) {
+                    data = cursor.value;
+                    var dataOffset = parseInt(cursor.key.slice(this.basename.length + 1), 16);
+                    if (dataOffset < offset)
+                        data = data.slice(offset - dataOffset);
+                }
+	    }.bind(this);
 	    req.onerror = function(e) {
 		console.error("store read", offset, e);
-		cb();
 	    };
-	}.bind(this));
+	}.bind(this), function() {
+            cb(data);
+        });
     },
 
     write: function(offset, data, cb) {

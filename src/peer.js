@@ -272,6 +272,8 @@ Peer.prototype = {
 			offset: offset,
 			length: length
 		    });
+                    if (this.sock.drained)
+                        this.onDrain();
 		}
 		break;
 	    case 7:
@@ -402,29 +404,44 @@ Peer.prototype = {
     onDrain: function() {
 	this.canRequest();
 
-	if (this.sock && this.sock.drained) {
-	    var chunk;
-	    if ((chunk = this.pendingChunks.shift())) {
+        if (!this.sock || !this.sock.drained)
+            return;
 
-		var piece = this.torrent.store.pieces[chunk.piece];
-		if (piece && piece.valid) {
-		    piece.read(chunk.offset, chunk.length, function(data) {
-			data = new Uint8Array(data);
-			var msg = new Message(9 + data.byteLength);
-			msg.setInt8(0, 7);  /* Piece */
-			msg.setUint32(1, chunk.piece);
-			msg.setUint32(5, chunk.offset);
-			/* Copy data :( */
-			/* FIXME: optimize */
-			for(var i = 0; i < data.byteLength; i++)
-			    msg.setInt8(9 + i, data[i]);
-			this.sendMessage(msg);
-			this.upRate.add(data.length);
-			this.torrent.upRate.add(data.length);
-			this.torrent.bytesUploaded += data.length;
-                        this.bytesUploaded += data.length;
-		    }.bind(this));
-		}
+        // console.log(this.ip, "onDrain", this.pendingChunks.length);
+        var t1 = Date.now();
+	var chunk;
+	if ((chunk = this.pendingChunks.shift())) {
+	    var piece = this.torrent.store.pieces[chunk.piece];
+            console.log(this.ip, "pendingChunks.shift", chunk, "valid:", piece.valid);
+	    if (piece && piece.valid) {
+                var t2 = Date.now();
+		piece.read(chunk.offset, chunk.length, function(data) {
+                    var t3 = Date.now();
+                    if (!this.sock)
+                        return;
+
+		    data = new Uint8Array(data);
+		    var msg = new Message(9);
+		    msg.setInt8(0, 7);  /* Piece */
+                    msg.setLength(9 + data.byteLength);
+		    msg.setUint32(1, chunk.piece);
+		    msg.setUint32(5, chunk.offset);
+                    var t4 = Date.now();
+                    upShaper.enqueue({
+                        amount: 7 + data.byteLength,
+                        cb: function() {
+                            if (!this.sock)
+                                return;
+                            this.sock.write(msg.buffer);
+                            this.sock.write(data);
+			    this.upRate.add(data.length);
+                            this.bytesUploaded += data.length;
+			    this.torrent.upRate.add(data.length);
+			    this.torrent.bytesUploaded += data.length;
+                            console.log(this.ip, "Seeded", data.length, "/", chunk.length, "in", t2 - t1, "+", t3 - t2, "+", t4 - t3, "ms", this.sock.drained);
+                        }.bind(this)
+                    });
+		}.bind(this));
 	    }
 	}
     },
@@ -551,9 +568,12 @@ function Message(len) {
 	len = this.buffer.byteLength - 4;
     }
     this.bufferView = new DataView(this.buffer);
-    this.bufferView.setUint32(0, len);
+    this.setLength(len);
 }
 Message.prototype = {
+    setLength: function(len) {
+        this.bufferView.setUint32(0, len);
+    },
     setInt8: function(offset, value) {
 	this.bufferView.setInt8(4 + offset, value);
     },
