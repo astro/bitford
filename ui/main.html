@@ -29,30 +29,50 @@
 	</p>
 	<h2>{{torrent.name}}</h2>
 	<button class="remove" ng-click="removeButton()">Remove</button>
-	<p class="stats" ng-hide="torrent.seeding">
+        <p class="recover-container"
+           ng-show="torrent.store.backend.recovered">
+          Recovering data…
+          <progress value="{{torrent.store.backend.recovered}}"
+                    max="{{torrent.store.size}}">
+          </progress>
+        </p>
+	<p class="stats" ng-hide="torrent.seeding || torrent.store.backend.recovered">
 	  {{humanSize(torrent.upRate.getRate())}}/s up,
           {{humanSize(torrent.downRate.getRate())}}/s down
 	</p>
-	<p class="stats" ng-hide="torrent.seeding">
+	<p class="stats" ng-hide="torrent.seeding || torrent.store.backend.recovered">
 	    ETA: {{estimateTime(torrent)}}
 	</p>
-	<p class="stats" ng-show="torrent.seeding">
+	<p class="stats" ng-show="torrent.seeding && !torrent.store.backend.recovered">
 	  {{humanSize(torrent.upRate.getRate())}}/s up
 	</p>
-	<p class="stats" ng-show="torrent.seeding">
+	<p class="stats" ng-show="torrent.seeding && !torrent.store.backend.recovered">
 	  Ratio: {{ratio(torrent)}}
 	</p>
 
-	<div ng-class="{ collapsed: !show.files }">
-	  <h3 ng-click="show.files = !show.files">Files</h3>
+	<div ng-class="{ collapsed: !show.files }" ng-hide="torrent.store.backend.recovered">
+	  <h3 ng-click="show.files = !show.files">{{torrent.files.length}} Files</h3>
 
 	  <ul class="files" ng-show="show.files">
 	    <li ng-repeat="file in torrent.files" ng-controller="TorrentFileController">
 	      <h4>{{file.path.join("/")}}</h4>
 	      <p class="size">{{humanSize(file.size)}}</p>
-	      <button ng-click="saveButton(file.path)" ng-disabled="saving">Save</button>
-	      <button ng-show="canPlay(file.path)"
-		      ng-click="playButton(file.path)">Play</button>
+	      <button ng-click="saveButton()">Save</button>
+	      <button ng-show="canPlay"
+		      ng-click="playButton()">Play</button>
+	      <button ng-show="canView"
+		      ng-click="viewButton()">View</button>
+              <ul class="save-container"
+		  ng-show="file.saveProgresses">
+                <li ng-repeat="progress in file.saveProgresses"
+                    class="saveProgress">
+                  Saving file…
+                  <progress value="{{progress.bytes}}"
+                            max="{{progress.size}}">
+                    {{progress.percent}}%
+                  </progress>
+                </li>
+              </ul>
 	      <div ng-show="videoURL || audioURL" class="video-container">
 		<video ng-show="videoURL"
 	               controls autoplay
@@ -63,12 +83,15 @@
 		       src="{{audioURL}}">
 		</audio>
 	      </div>
+	      <div ng-show="imageURL" class="video-container">
+		<webview src="{{imageURL}}"></webview>
+	      </div>
 	    </li>
 	  </ul>
 	</div>
 
-	<div ng-class="{ collapsed: !show.trackers }">
-	  <h3 ng-click="show.trackers = !show.trackers">Trackers</h3>
+	<div ng-class="{ collapsed: !show.trackers }" ng-hide="torrent.store.backend.recovered">
+	  <h3 ng-click="show.trackers = !show.trackers">{{torrent.trackers.length}} Trackers</h3>
 
 	  <dl ng-show="show.trackers" ng-repeat="tg in torrent.trackers">
 	    <dt>
@@ -81,8 +104,8 @@
 	  </dl>
 	</div>
 
-	<div ng-class="{ collapsed: !show.peers }">
-	  <h3 ng-click="show.peers = !show.peers">Peers</h3>
+	<div ng-class="{ collapsed: !show.peers }" ng-hide="torrent.store.backend.recovered">
+	  <h3 ng-click="show.peers = !show.peers">{{torrent.peerStats.connected}} Peers</h3>
 
 	  <table ng-show="show.peers"
 		 class="peers">
@@ -99,56 +122,77 @@
 	    </thead>
 	    <tbody>
 	      <tr ng-repeat="peer in torrent.peers"
-		  ng-show="peer.state == 'connected'">
+		  ng-show="peer.state == 'connected'"
+                  ng-class="{ choking: peer.choking, choked: peer.choked }">
 		<td>
-		  <span ng-show="peer.direction == 'incoming'" title="Incoming">From</span>
-		  <span ng-show="peer.direction == 'outgoing'" title="Outgoing">To</span>
-		  {{peer.ip}}:{{peer.port}}
+		  <span ng-show="peer.direction == 'incoming'" title="Incoming">←</span>
+		  <span ng-show="peer.direction == 'outgoing'" title="Outgoing">→</span>
+		  {{peer.ip}}
 		</td>
 		<td>{{peerIdToClient(peer.peerId)}}</td>
-		<td ng-switch="peer.state">
+		<td ng-switch="peer.state" class="state">
 		  <span ng-switch-when="connected">
-		    <span ng-show="peer.choked"
-			  style="color: red"
-			  title="We are choked">C</span>
-		    <span ng-hide="peer.choked"
-			  style="color: green"
-			  title="We are unchoked">U</span>
 		    <span ng-show="peer.interested"
 			  style="color: blue"
 			  title="Peer is interested in our data">I</span>
 		    <span ng-hide="peer.interested"
 			  style="color: #ccc"
 			  title="Peer is not interested in our data">N</span>
+		    <span ng-show="peer.choking"
+			  style="color: #ccc"
+			  title="We are choking them">C</span>
+		    <span ng-hide="peer.choking"
+			  style="color: blue"
+			  title="We are unchoking them">U</span>
+		    <span ng-show="peer.sock.drained"
+			  style="color: green"
+			  title="Socket drained">D</span>
+		    <span ng-hide="peer.sock.drained"
+			  style="color: red"
+			  title="Socket blocking">B</span>
 		    <span ng-show="peer.interesting"
 			  style="color: blue"
 			  title="We are interested in their data">I</span>
 		    <span ng-hide="peer.interesting"
 			  style="color: #ccc"
-			  title="We are bot interested in their data">N</span>
-		    <span ng-show="peer.sock.paused"
+			  title="We are not interested in their data">N</span>
+		    <span ng-show="peer.choked"
+			  style="color: red"
+			  title="We are choked">C</span>
+		    <span ng-hide="peer.choked"
+			  style="color: green"
+			  title="We are unchoked">U</span>
+		    <span ng-show="peer.downShaped"
 			  style="color: #333"
-			  title="Throttling download">P</span>
+			  title="Throttling download">T</span>
+		    <span ng-show="!peer.downShaped && peer.sock.paused"
+			  style="color: #333"
+			  title="Processing download">P</span>
 		    <span ng-hide="peer.sock.paused"
 			  style="color: green"
 			  title="Receiving">R</span>
 		  </span>
-		  <span ng-switch-default>
-		    {{peer.state}}<span ng-show="peer.error">: {{peer.error}}</span>
-		  </span>
 		</td>
 		<td>{{peer.getDonePercent()}}%</td>
-		<td>{{humanSize(peer.upRate.getRate())}}/s</td>
-		<td>{{humanSize(peer.downRate.getRate())}}/s</td>
-		<td>{{peer.requestedChunks.length}}↓ {{peer.pendingChunks.length}}↑</td>
+		<td title="{{humanSize(peer.bytesUploaded)}} total">{{humanSize(peer.upRate.getRate())}}/s</td>
+		<td title="{{humanSize(peer.bytesDownloaded)}} total">{{humanSize(peer.downRate.getRate())}}/s</td>
+		<td class="queuestats">
+                  <span class="down">{{peer.requestedChunks.length}}↓</span>
+                  <span class="up">{{peer.pendingChunks.length}}↑</span>
+                </td>
 	      </tr>
 	    </tbody>
 	  </table>
-	</div>
+
+	  <p ng-show="show.peers && torrent.peerStats.connecting > 0">
+            Currently connecting to {{torrent.peerStats.connecting}}
+            more peers…
+          </p>
+        </div>
 
 
 	<div ng-class="{ collapsed: !show.pieces }">
-	  <h3 ng-click="show.pieces = !show.pieces">Pieces</h3>
+	  <h3 ng-click="show.pieces = !show.pieces">{{torrent.store.pieces.length}} Pieces</h3>
 
 	  <div class="pieces-container" ng-show="show.pieces">
 	    <div class="pieces-scroll">
@@ -172,7 +216,8 @@
 	    </p>
 	    <p>
 	      Interested in {{torrent.store.interestingPieces.length}}
-	      of {{torrent.store.pieces.length}} pieces
+              (up to {{torrent.store.interestingPiecesThreshold}})
+	      of {{torrent.store.pieces.length}}× {{humanSize(torrent.store.pieceLength)}} pieces
 	    </p>
 	  </div>
 	</div>

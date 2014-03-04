@@ -1,54 +1,40 @@
+var READAHEAD_TIME = 3000;
+
 var requestFileSystem_ = window.requestFileSystem ||
     window.webkitRequestFileSystem;
 var PersistentStorage_ = navigator.PersistentStorage ||
     navigator.webkitPersistentStorage;
 
-function Store(torrent, pieceHashes, pieceLength) {
+function Store(torrent, torrentSize, pieceHashes, pieceLength) {
     this.torrent = torrent;
-    this.size = 0;
-    var files = torrent.files;
-    files.forEach(function(file) {
-	this.size += file.size;
-    }.bind(this));
+    this.size = torrentSize;
     this.pieceLength = pieceLength;
 
     var infoHashHex = bufferToHex(torrent.infoHash);
     this.backend = new StoreBackend(infoHashHex, this.onExisting.bind(this));
+    this.backend.onRecoveryDone = function() {
+        /* pass up to torrent */
+        this.onRecoveryDone();
+    }.bind(this);
 
     this.pieces = [];
     /* Build pieces... */
-    var filesIdx = 0, fileOffset = 0;
-    while(filesIdx < files.length) {
-	var pieceOffset = 0;
-	var chunks = [];
-	/* ...from files */
-	while(pieceOffset < pieceLength && filesIdx < files.length) {
-	    var length = Math.min(pieceLength - pieceOffset, files[filesIdx].size - fileOffset);
-	    chunks.push({ path: files[filesIdx].path,
-			  fileOffset: fileOffset,
-			  offset: pieceOffset,
-			  length: length });
-	    pieceOffset += length;
-	    fileOffset += length;
-	    if (fileOffset >= files[filesIdx].size) {
-		filesIdx++;
-		fileOffset = 0;
-	    }
-	}
-	this.pieces.push(new StorePiece(this, this.pieces.length, chunks, pieceHashes[this.pieces.length]));
+    for(var offset = 0; offset < torrentSize; offset += pieceLength) {
+	var length = Math.min(pieceLength, torrentSize - offset);
+	var pieceNumber = this.pieces.length;
+	this.pieces.push(new StorePiece(this, pieceNumber, length, pieceHashes[pieceNumber]));
     }
-    this.fileEntries = {};
 
-    /* Lower bound for interestingPieces */
-    this.interestingPiecesThreshold = 2;
-    /* Upper bound for interestingPieces */
-    this.piecesReadahead = 2 * this.interestingPiecesThreshold;
+    /* (changed dynamically) */
+    this.piecesReadahead = 2;
     this.interestingPieces = [];
+    /* Upper bound for interestingPieces (changed dynamically) */
+    this.interestingPiecesThreshold = 4;
 
     this.sha1Worker = new SHA1Worker();
 }
 Store.prototype = {
-    /* Called back by StoreBackend() when initializing */
+    /* Called back by StoreBackend() when initializing (recovery) */
     onExisting: function(offset, data, cb) {
 	var pending = 1;
 	var done = function() {
@@ -70,16 +56,31 @@ Store.prototype = {
 	    var piece = this.pieces[i];
 	    for(var j = 0; j < piece.chunks.length; j++) {
 		var chunk = piece.chunks[j];
-		if (pieceOffset + chunk.offset >= offset &&
-		    pieceOffset + chunk.offset + chunk.length <= offset + length) {
-
-		    chunk.state = 'written';
-		}
+		if (pieceOffset + chunk.offset === offset)
+                    break;
+            }
+            if (j < piece.chunks.length) {
+                var start = j;
+                for(j++; j < piece.chunks.length; j++) {
+		    chunk = piece.chunks[j];
+		    if (pieceOffset + chunk.offset >= offset + length)
+                        break;
+                }
+                var stop = j;
+                var newChunk = {
+	            offset: offset - pieceOffset,
+	            length: length,
+	            state: 'written'
+                };
+                console.log("splice", i, ": from", start, "to", stop, "into", pieceOffset, "+", length);
+                piece.chunks.splice(start, stop - start, newChunk);
 	    }
 	    pending++;
 	    piece.canHash(offset - pieceOffset, new BufferList([data]), done);
+            pending++;
+            piece.continueHashing(done);
 	}
-	done();
+        done();
     },
 
     remove: function() {
@@ -94,7 +95,7 @@ Store.prototype = {
 	});
     },
 
-    isInterestedIn: function(peer) {
+    isInterestedInPeer: function(peer) {
 	for(var i = 0; i < this.pieces.length; i++) {
 	    var piece = this.pieces[i];
 	    if (!piece.valid && peer.has(i))
@@ -103,35 +104,54 @@ Store.prototype = {
 	return false;
     },
 
-    // TODO: could return up to a number chunks (optimization)
-    nextToDownload: function(peer, forceOne) {
-	this.fillInterestingPieces(peer, forceOne);
-
+    isCurrentlyInterestedInPiece: function(pieceNumber) {
 	for(var i = 0; i < this.interestingPieces.length; i++) {
-	    var piece = this.interestingPieces[i];
+            if (this.interestingPieces[i].pieceNumber === pieceNumber)
+                return true;
+	}
+	return false;
+    },
+
+    nextToDownload: function(peer) {
+        var piece;
+	for(var i = 0; i < this.interestingPieces.length; i++) {
+	    piece = this.interestingPieces[i];
 	    var chunk =
 		peer.has(piece.pieceNumber) &&
 		piece.nextToDownload(peer);
-	    if (chunk)
+	    if (chunk) {
+                /* Found candidate! */
 		return chunk;
+            }
 	}
+
+	/* these are proportional to torrent rate,
+	   to have piece stealing in time
+	*/
+	var readaheadBytes = READAHEAD_TIME * this.torrent.downRate.getRate() / 1000;
+	this.piecesReadahead = Math.ceil(Math.max(512 * 1024, readaheadBytes) / this.pieceLength);
+        this.interestingPiecesThreshold = 2 * this.piecesReadahead;
+        var t1 = Date.now();
+
+        if (this.interestingPieces.length < this.interestingPiecesThreshold &&
+            (piece = this.findInterestingPiece(peer))) {
+            var t2 = Date.now();
+            console.log("new interesting", piece, "in", t2 - t1, "ms");
+            this.interestingPieces.push(piece);
+            setTimeout(this.onPieceMissing.bind(this, piece.pieceNumber), 1);
+
+            if (!peer.has(piece.pieceNumber)) {
+                console.warn("Found interesting piece for peer who doesn't have it", peer.ip, piece.pieceNumber);
+            } else {
+                return piece.nextToDownload(peer);
+            }
+        } else
+            console.log("cannot find interesting pieces for", peer.ip, "currently:", this.interestingPieces.length, "/", this.interestingPiecesThreshold);
 
 	return null;
     },
 
-    fillInterestingPieces: function(hintPeer, forceOne) {
-	/* these are proportional to torrent rate,
-	   to have piece stealing in time
-	*/
-	var readaheadTime = 3000;
-	var readaheadBytes = readaheadTime * this.torrent.downRate.getRate() / 1000;
-	this.interestingPiecesThreshold = Math.max(2, Math.ceil(readaheadBytes / this.pieceLength));
-	this.piecesReadahead = 2 * this.interestingPiecesThreshold;
-
-	if (!forceOne && this.interestingPieces.length >= this.interestingPiecesThreshold)
-	    /* Don't even start working unless neccessary */
-	    return;
-
+    findInterestingPiece: function(hintPeer) {
 	/* Build rarity map */
 	var rarity = {};
 	var i, piece;
@@ -146,25 +166,29 @@ Store.prototype = {
 		    rarity[i]++;
 	    });
 	}
+
 	/* Select by highest rarity first, or randomly */
-	var idxs = Object.keys(rarity).sort(function(idx1, idx2) {
-	    var r1 = rarity[idx1], r2 = rarity[idx2];
-	    if (r1 === r2)
-		return Math.random() - 0.5;
-	    else
-		return r2 - r1;
-	});
-	for(i = 0; (forceOne || this.interestingPieces.length < this.piecesReadahead) && i < idxs.length; i++) {
-	    var idx = idxs[i];
-	    piece = this.pieces[idx];
-	    var alreadyPresent = this.interestingPieces.some(function(presentPiece) {
-		return "" + presentPiece.pieceNumber === idx;
+	var idxs = Object.keys(rarity).
+            sort(function(idx1, idx2) {
+	        var r1 = rarity[idx1], r2 = rarity[idx2];
+	        if (r1 === r2)
+		    return Math.random() - 0.5;
+	        else
+		    return r2 - r1;
 	    });
-	    if (!alreadyPresent) {
-		this.interestingPieces.push(piece);
-		forceOne = false;
-	    }
+	for(i = 0; i < idxs.length; i++) {
+	    var idx = parseInt(idxs[i], 10);
+	    piece = this.pieces[idx];
+            if (!this.isCurrentlyInterestedInPiece(idx)) {
+                /* Found! */
+                return piece;
+            }
 	}
+
+        /* Peer has nothing for us
+           TODO: work on interested state
+        */
+        return null;
     },
 
     onPieceMissing: function(idx) {
@@ -205,37 +229,46 @@ Store.prototype = {
 	return result;
     },
 
-    consumeFile: function(path, offset, cb) {
-	var i, j, found = false;
-	for(i = 0; !found && i < this.pieces.length; i++) {
-	    var piece = this.pieces[i];
-	    for(j = 0; !found && j < piece.chunks.length; j++) {
-		var chunk = piece.chunks[j];
-		found = arrayEq(chunk.path, path) &&
-		    chunk.fileOffset <= offset &&
-		    chunk.fileOffset + chunk.length > offset;
-	    }
-	}
-
-	if (found) {
+    /**
+     * A read that can take really long; prioritize pieces, wait until
+     * they're valid 
+     */
+    consume: function(offset, cb) {
+	var pieceNumber = Math.floor(offset / this.pieceLength);
+        var pieceOffset = pieceNumber * this.pieceLength;
+	var piece = this.pieces[pieceNumber];
+	if (piece) {
 	    piece.addOnValid(function() {
-		var chunkOffset = piece.pieceNumber * this.pieceLength + chunk.offset;
-		if (chunk.data) {
+		var chunkOffset = offset - pieceNumber * this.pieceLength;
+		var chunk;
+		for(var i = 0; i < piece.chunks.length; i++) {
+		    chunk = piece.chunks[i];
+		    if (chunk.offset <= chunkOffset && chunk.offset + chunk.length > chunkOffset)
+			break;
+		    chunk = undefined;
+		}
+		if (chunk && chunk.data) {
 		    var data = chunk.data;
-		    if (chunkOffset < offset)
-			data = data.getBufferList(offset - chunkOffset);
+		    if (chunk.offset < chunkOffset) {
+			data = data.getBufferList(chunkOffset - chunk.offset);
+                    }
 		    data.readAsArrayBuffer(cb);
-		} else {
-		    this.backend.readFrom(chunkOffset, function(data) {
-			if (chunkOffset < offset)
-			    data = data.slice(offset - chunkOffset);
+		} else if (chunk) {
+                    var absoluteChunkOffset = pieceOffset + chunk.offset;
+		    this.backend.read(absoluteChunkOffset, function(data) {
+			if (absoluteChunkOffset < offset) {
+			    data = data.slice(offset - absoluteChunkOffset);
+                        }
 			cb(data);
 		    });
+		} else {
+		    cb();
 		}
 	    }.bind(this));
 	    
 	    /* Interest for readahead */
-	    var readahead = [], piecesReadahead = this.piecesReadahead;
+	    var readahead = [];
+            var piecesReadahead = Math.max(2, this.piecesReadahead);
 	    for(i = piece.pieceNumber; piecesReadahead > 0 && i < this.pieces.length; i++) {
 		if (!this.pieces[i].valid) {
 		    piecesReadahead--;
@@ -248,7 +281,7 @@ Store.prototype = {
 		return readahead.indexOf(piece.pieceNumber) === -1;
 	    }));
 	} else {
-	    console.warn("consumeFile: not found", path, "+", offset);
+	    console.warn("consume: offset exceeded torrent length:", offset);
 	    cb();
 	}
     },
@@ -257,7 +290,10 @@ Store.prototype = {
 	if (pieceNumber < this.pieces.length) {
 	    var piece = this.pieces[pieceNumber];
 	    if (piece.valid) {
-		console.warn("Attempting to write to valid piece", this.pieceNumber);
+		/* Attempting to write to valid piece
+                 * (possibly timed out and requested with another peer)
+                 */
+                cb();
 		return;
 	    }
 
@@ -272,25 +308,18 @@ Store.prototype = {
 
 var CHUNK_LENGTH = Math.pow(2, 14);  /* 16 KB */
 
-function StorePiece(store, pieceNumber, chunks, expectedHash) {
+function StorePiece(store, pieceNumber, pieceLength, expectedHash) {
     this.store = store;
     this.pieceNumber = pieceNumber;
+    /* Create chunks */
     this.chunks = [];
-    for(var i = 0; i < chunks.length; i++) {
-	var chunk = chunks[i];
-	while(chunk.length > 0) {
-	    var l = Math.min(chunk.length, CHUNK_LENGTH);
-	    this.chunks.push({
-		path: chunk.path,
-		fileOffset: chunk.fileOffset,
-		offset: chunk.offset,
-		length: l,
-		state: 'missing'
-	    });
-	    chunk.fileOffset += l;
-	    chunk.offset += l;
-	    chunk.length -= l;
-	}
+    for(var offset = 0; offset < pieceLength; offset += CHUNK_LENGTH) {
+	var length = Math.min(pieceLength - offset, CHUNK_LENGTH);
+	this.chunks.push({
+	    offset: offset,
+	    length: length,
+	    state: 'missing'
+	});
     }
 
     this.expectedHash = expectedHash;
@@ -299,7 +328,12 @@ function StorePiece(store, pieceNumber, chunks, expectedHash) {
     this.onValidCbs = [];
 }
 StorePiece.prototype = {
+    /* TODO: simplify, all chunks are equally sized now */
     nextToDownload: function(peer) {
+        if (this.valid)
+            /* No need to */
+            return null;
+
 	var result, requestedChunks = [];
 	for(var i = 0; i < this.chunks.length && (!result || result.length < CHUNK_LENGTH); i++) {
 	    var chunk = this.chunks[i];
@@ -332,12 +366,31 @@ StorePiece.prototype = {
     read: function(offset, length, cb) {
 	if (length < 1)
 	    cb();
-	else
-	    this.store.backend.read(
-		this.pieceNumber * this.store.pieceLength + offset,
-		length,
-		cb
-	    );
+	else {
+            var result = new BufferList();
+            var stack = new Error("Empty read for " + offset + "+" + length).stack;
+            var read = function(offset, length) {
+	        this.store.backend.read(
+		    this.pieceNumber * this.store.pieceLength + offset,
+		    function(data) {
+                        if (!data || data.byteLength < 1) {
+                            console.error(stack);
+                            return cb();
+                        }
+
+                        if (data.byteLength > length)
+                            data = data.slice(0, length);
+                        result.append(data);
+
+                        if (length > data.byteLength && data.byteLength > 0) {
+                            read(offset + data.byteLength, length - data.byteLength);
+                        } else {
+                            result.readAsArrayBuffer(cb);
+                        }
+                    });
+            }.bind(this);
+            read(offset, length);
+        }
     },
 
     write: function(offset, data, cb) {
@@ -367,19 +420,18 @@ StorePiece.prototype = {
 	    data.take(this.sha1pos - offset);
 	}
 	// console.log("piece", this.store.pieces.indexOf(this), "canHash", offset, this.sha1pos);
-	var pendingUpdates = 1;
-	function onUpdated() {
-	    pendingUpdates--;
-	    if (pendingUpdates < 1 && cb)
+	var pending = 1;
+	function onDone() {
+	    pending--;
+	    if (pending < 1 && cb)
 		cb();
 	}
 	data.getBuffers().forEach(function(buf) {
 	    this.sha1pos += buf.byteLength;
-	    this.store.sha1Worker.update(this.pieceNumber, buf, onUpdated);
-	    pendingUpdates++;
+	    this.store.sha1Worker.update(this.pieceNumber, buf, onDone);
+	    pending++;
 	    /* buf is neutered here, don't reuse data */
 	}.bind(this));
-	onUpdated();
 
 	var chunk;
 	for(var i = 0; i < this.chunks.length; i++) {
@@ -388,28 +440,30 @@ StorePiece.prototype = {
 		/* Found a piece that follows */
 		break;
 	    } else if (chunk.offset + chunk.length <= this.sha1pos) {
-		chunk.state = 'valid';
+                if (chunk.state !== 'written')
+		    chunk.state = 'valid';
 	    }
 	}
 	if (i >= this.chunks.length) {
 	    /* No piece followed, validate hash */
 	    this.store.sha1Worker.finalize(this.pieceNumber, function(hash) {
-		this.onHashed(hash);
+		this.onHashed(hash, onDone);
 	    }.bind(this));
-	}
+	} else {
+            onDone();
+        }
     },
 
     continueHashing: function(cb) {
 	for(var i = 0;
 	    i < this.chunks.length &&
-	    (this.chunks[i].state == 'received' || this.chunks[i].state == 'valid') &&
+	    (['received', 'valid', 'written'].indexOf(this.chunks[i].state) >= 0) &&
 	    this.chunks[i].offset <= this.sha1pos;
 	    i++) {
 
 	    var chunk = this.chunks[i];
 	    var start = this.sha1pos - chunk.offset;
 	    if (start >= 0 && start < chunk.length) {
-		var len = chunk.length - start;
 		var offset = chunk.offset + start;
 		if (chunk.data && chunk.data.length > 0) {
 		    this.canHash(offset, chunk.data, function() {
@@ -422,7 +476,7 @@ StorePiece.prototype = {
 		    /* This path will only be taken if recovery found
 		     * stored data for a not yet valid chunk
 		     */
-		    this.read(offset, len, function(data) {
+		    this.read(offset, function(data) {
 			if (data.length > 0) {
 			    this.canHash(offset, data, cb);
 			} else {
@@ -441,7 +495,7 @@ StorePiece.prototype = {
 	cb();
     },
 
-    onHashed: function(hash) {
+    onHashed: function(hash, cb) {
 	hash = new Uint8Array(hash);
 	this.sha1 = null;
 
@@ -462,7 +516,6 @@ StorePiece.prototype = {
 	    this.store.onPieceMissing(this.pieceNumber);
 	} else {
 	    /* Hash checked: validate */
-	    console.log("onValid", this.pieceNumber);
 	    this.store.onPieceValid(this.pieceNumber);
 	    var onValidCbs = this.onValidCbs;
 	    this.onValidCbs = [];
@@ -475,7 +528,7 @@ StorePiece.prototype = {
 	    }.bind(this));
 	
 	    /* Drop memory storage just after onValidCbs have been run */
-	    this.writeToBackend();
+	    this.writeToBackend(cb);
 	}
     },
 
@@ -483,7 +536,6 @@ StorePiece.prototype = {
 	if (this.valid)
 	    cb();
 	else {
-	    console.log("addOnValid", this.valid, this.pieceNumber);
 	    this.onValidCbs.push(cb);
 	    this.store.onPieceMissing(this.pieceNumber);
 	}
@@ -492,7 +544,7 @@ StorePiece.prototype = {
     /**
      * Persist when piece has gone valid
      **/
-    writeToBackend: function() {
+    writeToBackend: function(cb) {
 	var storeChunkLength = Math.min(512 * 1024, this.store.pieceLength);
 	var i;
 	
@@ -501,10 +553,11 @@ StorePiece.prototype = {
 	}
 	if (i >= this.chunks.length) {
 	    /* All done */
-	    console.log("Piece", this.pieceNumber, "seems fully persisted");
-	    return;
+	    // console.log("Piece", this.pieceNumber, "seems fully persisted");
+	    return cb();
 	}
 	/* i now points to the first chunk that has data */
+	var i1 = i;
 
 	var offset = this.chunks[i].offset;
 	var length = this.chunks[i].data.length;
@@ -514,31 +567,32 @@ StorePiece.prototype = {
 	    length += this.chunks[i].data.length;
 	    chunks.push(this.chunks[i]);
 	}
+        chunks.forEach(function(chunk) {
+            chunk.state = 'writing';
+        });
 	/* Concatenate */
 	var reader = new FileReader();
 	reader.onload = function() {
-	    try {
-		console.log("Write to", this.pieceNumber, "+", offset, ":", reader.result.byteLength, "/", length, "bytes");
-		this.store.backend.write(
-		    this.pieceNumber * this.store.pieceLength + offset,
-		    reader.result, function() {
-			chunks.forEach(function(chunk) {
-			    chunk.state = 'written';
-			    /* free */
-			    delete chunk.data;
-			});
-			/* loop (because we write only up to storeChunkLength */
-			this.writeToBackend();
-		    }.bind(this));
-	    } catch (e) {
-		console.error("writeToBackend", e);
-		this.writeToBackend();
-	    }
+	    // console.log("Write to", this.pieceNumber, "+", offset, ":", reader.result.byteLength, "/", length, "bytes");
+	    this.store.backend.write(
+		this.pieceNumber * this.store.pieceLength + offset,
+		reader.result, function() {
+	            var newChunk = {
+	                offset: chunks[0].offset,
+	                length: length,
+	                state: 'written'
+	            };
+		    this.chunks.splice(i1, chunks.length, newChunk);
+		    /* loop (because we write only up to storeChunkLength */
+		    this.writeToBackend(cb);
+		}.bind(this));
 	}.bind(this);
+        reader.onerror = function() {
+            cb();
+        };
 	var buffers = [].concat.apply([], chunks.map(function(chunk) {
 	    return chunk.data.getBuffers();
 	}));
-	// console.log("buffers", length, ":", buffers);
 	reader.readAsArrayBuffer(new Blob(buffers));
     }
 };

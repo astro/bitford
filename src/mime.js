@@ -1,6 +1,7 @@
 var MIME_TYPES = {
     "mp4": "video/mp4",
     "m4v": "video/mp4",
+    "mov": "video/mp4",
     "webm": "video/webm",
     "ogv": "video/ogg",
     "mkv": "video/webm",
@@ -12,7 +13,11 @@ var MIME_TYPES = {
     "3gp": "audio/3gpp",
     "ogg": "audio/ogg",
     "oga": "audio/ogg",
-    "opus": "audio/opus"
+    "opus": "audio/opus",
+    "gif": "image/gif",
+    "jpg": "image/jpeg",
+    "png": "image/png",
+    "html": "text/html"
 };
 
 function getMimeType(path) {

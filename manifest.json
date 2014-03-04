@@ -13,7 +13,8 @@
 	"unlimitedStorage",
 	"fileSystem",
 	"fileSystem.write",
-	"http://*/*"
+	"http://*/*",
+	"webview"
     ],
     "app": {
 	"background": {

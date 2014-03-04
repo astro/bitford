@@ -52,7 +52,7 @@ app.directive('piecesCanvas', function() {
 	link: function($scope, element, attrs) {
 	    function draw() {
 		if (attrs['piecesCanvas'] && !$scope.$eval(attrs['piecesCanvas'])) {
-		    setTimeout(draw, 300);
+		    setTimeout(draw, 50);
 		    return;
 		}
 
@@ -63,7 +63,7 @@ app.directive('piecesCanvas', function() {
 		    return;
 		var pieceLength = $scope.torrent.store.pieceLength;
 		element.attr('width', Math.min(2048, 4 * pieces.length));
-		element.attr('height', Math.min(64, 4 * Math.ceil(pieceLength / 32768)));
+		element.attr('height', 64);
 		var canvas = element[0];
 		var ctx = canvas.getContext('2d');
 		ctx.fillStyle = "white";
@@ -72,10 +72,14 @@ app.directive('piecesCanvas', function() {
 		for(var x = 0; x < pieces.length; x++) {
 		    var x1 = Math.floor(canvas.width * x / pieces.length);
 		    var x2 = Math.floor(canvas.width * (x + 1) / pieces.length);
+                    var requested = $scope.torrent.store.interestingPieces.some(function(piece) {
+                        return piece.pieceNumber === x;
+                    });
+                    var missingColor = requested ? "#ddd" : "#ccc";
 		    if (!pieces[x].chunks.some(function(chunk) {
 							  return chunk.state !== 'missing';
 						      })) {
-			ctx.fillStyle = "#ccc";
+			ctx.fillStyle = missingColor;
 			ctx.fillRect(x1, 0, x2, canvas.height);
 		    } else
 			pieces[x].chunks.forEach(function(chunk) {
@@ -83,7 +87,7 @@ app.directive('piecesCanvas', function() {
 			    var y2 = canvas.height * (chunk.offset + chunk.length) / pieceLength;
 			    switch(chunk.state) {
 				case 'missing':
-				    ctx.fillStyle = "#ccc";
+				    ctx.fillStyle = missingColor;
 				    break;
 				case 'requested':
 				    ctx.fillStyle = "#f77";
@@ -93,6 +97,9 @@ app.directive('piecesCanvas', function() {
 				    break;
 				case 'valid':
 				    ctx.fillStyle = pieces[x].valid ? "#77f" : "#33f";
+				    break;
+				case 'writing':
+				    ctx.fillStyle = "#3c3";
 				    break;
 				case 'written':
 				    ctx.fillStyle = "#7f7";
@@ -105,8 +112,8 @@ app.directive('piecesCanvas', function() {
 		}
 
 		var t2 = Date.now();
-		/* Allow max. 10% CPU time */
-		setTimeout(draw, Math.ceil(Math.max(50, t2 - t1) / .10));
+		/* Allow max. 5% CPU time */
+		setTimeout(draw, Math.ceil(Math.max(50, t2 - t1) / .05));
 	    }
 	    draw();
         }
@@ -157,15 +164,9 @@ app.controller('TorrentController', function($scope) {
 	}
     };
 
-    function tick() {
-	setTimeout(function() {
-	    $scope.$apply(function() {
-		$scope.isMultiFile = $scope.torrent.files.length > 1;
-	    });
-	    tick();
-	}, 100);
-    }
-    tick();
+    $scope.$watch(function() {
+	$scope.isMultiFile = $scope.torrent.files.length > 1;
+    });
 
     $scope.show = {
 	files: true,
@@ -173,15 +174,29 @@ app.controller('TorrentController', function($scope) {
 	peers: false,
 	pieces: false
     };
+
+    $scope.removeButton = function() {
+	chrome.runtime.getBackgroundPage(function(background) {
+	    background.rmTorrent($scope.torrent);
+	});
+    };
 });
 
 app.controller('TorrentFileController', function($scope) {
-    $scope.canPlay = function(path) {
-	var mimeType = getMimeType(path);
-	// TODO: determine support
-	return /^video\//.test(mimeType) || /^audio\//.test(mimeType);
+    var makeURL = function(httpStreamPort) {
+	var url = "http://localhost:" + httpStreamPort + "/" +
+	    encodeURIComponent($scope.torrent.name);
+	if ($scope.torrent.files.length !== 1)
+	    url += "/" + $scope.file.path.map(function(s) {
+	        return encodeURIComponent(s);
+	    }).join("/");
+	return url;
     };
-    $scope.playButton = function(path) {
+
+    var mimeType = getMimeType($scope.file.path);
+    // TODO: determine support
+    $scope.canPlay = /^video\//.test(mimeType) || /^audio\//.test(mimeType);
+    $scope.playButton = function() {
 	if ($scope.videoURL || $scope.audioURL) {
 	    $scope.videoURL = null;
 	    $scope.audioURL = null;
@@ -190,59 +205,85 @@ app.controller('TorrentFileController', function($scope) {
 
 	chrome.runtime.getBackgroundPage(function(background) {
 	    var httpStreamPort = background.httpStreamPort;
-	    var mimeType = getMimeType(path);
+	    console.log("background", background);
 	    console.log("app httpStreamPort", httpStreamPort);
-	    var url = "http://localhost:" + httpStreamPort + "/" + path.join("/");
 	    if (/^video\//.test(mimeType))
-		$scope.videoURL = url;
+		$scope.videoURL = makeURL(httpStreamPort);
 	    else if (/^audio\//.test(mimeType))
-		$scope.audioURL = url;
+		$scope.audioURL = makeURL(httpStreamPort);
 	    $scope.$digest();
 	});
     };
-    $scope.saveButton = function(path) {
-	var size = $scope.torrent.files.filter(function(file) {
-	    return file.path == path;
-	}).map(function(file) {
-	    return file.size;
-	})[0];
+    $scope.canView = /^image\//.test(mimeType) ||
+        mimeType === "text/html";
+    $scope.viewButton = function(path) {
+	if ($scope.imageURL) {
+	    $scope.imageURL = null;
+	    return;
+	}
 
+	chrome.runtime.getBackgroundPage(function(background) {
+	    var httpStreamPort = background.httpStreamPort;
+	    console.log("background", background);
+	    $scope.imageURL = makeURL(httpStreamPort);
+	    $scope.$digest();
+	});
+    };
+    $scope.saveButton = function() {
 	chrome.fileSystem.chooseEntry({
 	    type: 'saveFile',
-	    suggestedName: path[path.length - 1]
+	    suggestedName: $scope.file.path[$scope.file.path.length - 1]
 	}, function(entry) {
 	    if (!entry)
 		return;
 
+            var pos = $scope.torrent.findFilePosition($scope.file.path);
+            console.log("findFilePosition", $scope.file.path);
+            var progress = {
+                bytes: 0,
+                percent: 0,
+                size: pos.size
+            };
+            if (!pos.file.saveProgresses)
+                pos.file.saveProgresses = [];
+            pos.file.saveProgresses.push(progress);
+            var stopProgress = function() {
+                var pp = pos.file.saveProgresses.indexOf(progress);
+                if (pp >= 0) {
+                    pos.file.saveProgresses.splice(pp, 1);
+                    if (pos.file.saveProgresses.length < 1)
+                        delete pos.file.saveProgresses;
+                }
+            };
 	    entry.createWriter(function(writer) {
 		writer.truncate(0);
 
-		$scope.$apply(function() {
-		    $scope.saving = true;
-		});
-		var bytes = 0;
 		function loop() {
-		    if (bytes >= size) {
+		    if (progress.bytes >= progress.size) {
 			$scope.$apply(function() {
-			    $scope.saving = false;
+                            stopProgress();
 			});
 			return;
 		    }
 
-		    $scope.torrent.store.consumeFile(path, bytes, function(data) {
+		    $scope.torrent.store.consume(pos.offset + progress.bytes, function(data) {
+                        console.log("data", data.byteLength);
 			if (data.byteLength > 0) {
+                            if (data.byteLength > progress.size - progress.bytes)
+                                data = data.slice(0, progress.size - progress.bytes);
 			    writer.onwriteend = function() {
-				bytes += data.byteLength;
-				console.log("written",bytes,"bytes for", entry, writer);
+				progress.bytes += data.byteLength;
+				console.log("written",progress.bytes,"bytes for", entry, writer);
 				loop();
 			    };
 			    writer.onerror = function(error) {
 				console.error("write", error);
+                                stopProgress();
 			    };
 			    writer.write(new Blob([data]));
 			} else
 			    $scope.$apply(function() {
-				$scope.saving = false;
+                                stopProgress();
 			    });
 		    });
 		}
@@ -250,11 +291,6 @@ app.controller('TorrentFileController', function($scope) {
 	    }, function(e) {
 		console.error("createWriter", e);
 	    });
-	});
-    };
-    $scope.removeButton = function() {
-	chrome.runtime.getBackgroundPage(function(background) {
-	    background.rmTorrent($scope.torrent);
 	});
     };
 });

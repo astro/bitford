@@ -9,7 +9,9 @@ function servePeer(sock, cb) {
 	    peer.direction = 'incoming';
 	    peer.onHandshaked = function() {
 		cb(peer);
-		peer.sendHandshake();
+                if (peer.sock)
+                    /* Not yet closed? */
+		    peer.sendHandshake();
 	    };
 	    peer.setSock(sock);
 	    peer.state = 'handshake';
@@ -32,6 +34,8 @@ function Peer(torrent, info) {
     this.inPiecesProcessing = 0;
     this.upRate = new RateEstimator();
     this.downRate = new RateEstimator();
+    this.bytesUploaded = 0;
+    this.bytesDownloaded = 0;
     this.pendingChunks = [];
     // We in them
     this.interesting = false;
@@ -136,7 +140,9 @@ Peer.prototype = {
 	if (this.sock) {
 	    this.sock.pause();
 	    this.downShaped = true;
-	}
+	} else
+            return;
+
 	downShaper.enqueue({
 	    amount: data.byteLength,
 	    cb: function() {
@@ -182,13 +188,11 @@ Peer.prototype = {
 		 **/
 		this.bitfield = new Uint8Array(Math.ceil(this.torrent.pieces / 8));
 
-		this.sendBitfield();
-		/* Interested */
-		this.interesting = true;
-		this.sendMessage(new Message([2]));
-		/* Unchoke by default */
-		this.choking = false;
-		this.sendMessage(new Message([1]));
+                this.sendBitfield();
+                /* Interested */
+                this.interesting = true;
+                this.sendMessage(new Message([2]));
+                /* Choked by default */
 	    } else if (this.state === 'connected' && !this.messageSize && this.buffer.length >= 4) {
 		this.messageSize = this.buffer.getWord32BE(0);
 		// console.log(this.ip, "messageSize", this.messageSize);
@@ -268,6 +272,8 @@ Peer.prototype = {
 			offset: offset,
 			length: length
 		    });
+                    if (this.sock.drained)
+                        this.onDrain();
 		}
 		break;
 	    case 7:
@@ -310,9 +316,10 @@ Peer.prototype = {
 	/* Write & resume */
 	if (data && data.length > 0) {
 	    this.downRate.add(data.length);
+            this.bytesDownloaded += data.length;
 	    this.torrent.recvData(piece, offset, data, onProcessed);
 	} else
-	    onProcessed();
+            setTimeout(onProcessed, 1);
 
 	this.canRequest();
     },
@@ -346,7 +353,7 @@ Peer.prototype = {
     onUpdateBitfield: function() {
 	this.donePercent = null;
 
-	var interesting = this.torrent.store.isInterestedIn(this);
+	var interesting = this.torrent.store.isInterestedInPeer(this);
 	if (interesting && !this.interesting) {
 	    /* Change triggered */
 	    this.interesting = true;
@@ -397,28 +404,44 @@ Peer.prototype = {
     onDrain: function() {
 	this.canRequest();
 
-	if (this.sock && this.sock.drained) {
-	    var chunk;
-	    if ((chunk = this.pendingChunks.shift())) {
+        if (!this.sock || !this.sock.drained)
+            return;
 
-		var piece = this.torrent.store.pieces[chunk.piece];
-		if (piece && piece.valid) {
-		    piece.read(chunk.offset, chunk.length, function(data) {
-			data = new Uint8Array(data);
-			var msg = new Message(9 + data.byteLength);
-			msg.setInt8(0, 7);  /* Piece */
-			msg.setUint32(1, chunk.piece);
-			msg.setUint32(5, chunk.offset);
-			/* Copy data :( */
-			/* FIXME: optimize */
-			for(var i = 0; i < data.byteLength; i++)
-			    msg.setInt8(9 + i, data[i]);
-			this.sendMessage(msg);
-			this.upRate.add(data.length);
-			this.torrent.upRate.add(data.length);
-			this.torrent.bytesUploaded += data.length;
-		    }.bind(this));
-		}
+        // console.log(this.ip, "onDrain", this.pendingChunks.length);
+        var t1 = Date.now();
+	var chunk;
+	if ((chunk = this.pendingChunks.shift())) {
+	    var piece = this.torrent.store.pieces[chunk.piece];
+            console.log(this.ip, "pendingChunks.shift", chunk, "valid:", piece.valid);
+	    if (piece && piece.valid) {
+                var t2 = Date.now();
+		piece.read(chunk.offset, chunk.length, function(data) {
+                    var t3 = Date.now();
+                    if (!this.sock)
+                        return;
+
+		    data = new Uint8Array(data);
+		    var msg = new Message(9);
+		    msg.setInt8(0, 7);  /* Piece */
+                    msg.setLength(9 + data.byteLength);
+		    msg.setUint32(1, chunk.piece);
+		    msg.setUint32(5, chunk.offset);
+                    var t4 = Date.now();
+                    upShaper.enqueue({
+                        amount: 7 + data.byteLength,
+                        cb: function() {
+                            if (!this.sock)
+                                return;
+                            this.sock.write(msg.buffer);
+                            this.sock.write(data);
+			    this.upRate.add(data.length);
+                            this.bytesUploaded += data.length;
+			    this.torrent.upRate.add(data.length);
+			    this.torrent.bytesUploaded += data.length;
+                            console.log(this.ip, "Seeded", data.length, "/", chunk.length, "in", t2 - t1, "+", t3 - t2, "+", t4 - t3, "ms", this.sock.drained);
+                        }.bind(this)
+                    });
+		}.bind(this));
 	    }
 	}
     },
@@ -434,43 +457,46 @@ Peer.prototype = {
 	this.inflightThreshold = Math.max(2,
 	    Math.ceil(this.downRate.getRate() * 0.5 / CHUNK_LENGTH));
 
-	while(this.requestedChunks.length < this.inflightThreshold) {
-	    var chunk = this.torrent.store.nextToDownload(this);
+        var chunk = true;
+	while(chunk && this.requestedChunks.length < this.inflightThreshold) {
+	    chunk = this.torrent.store.nextToDownload(this);
 	    if (chunk) {
 		this.request(chunk);
-		/* Skip to next */
-		continue;
-	    }
-
-	    /* Work stealing */
-	    var maxReqs = 0, maxReqsIdx = null;
-	    for(var i = 0; i < this.torrent.peers.length; i++) {
-		var reqs = this.torrent.peers[i].requestedChunks.length;
-		if (reqs > maxReqs) {
-		    maxReqs = reqs;
-		    maxReqsIdx = i;
-		}
-	    }
-	    if (maxReqs > 2 && maxReqs >= 2 * this.requestedChunks.length) {
-		var peer = this.torrent.peers[maxReqsIdx];
-		// console.log("peer", peer.ip, "has max reqs:", maxReqs);
-		chunk = peer.requestedChunks.pop();
-		peer.sendCancel(chunk.piece, chunk.offset, chunk.length);
-		if (chunk && this.has(chunk.piece)) {
-		    console.log(this.ip, "stole from", peer.ip, ":", chunk);
-		    chunk.peer = this;
-		    this.request(chunk);
-		    continue;
-		}
-	    }
-
-	    /* Desperate */
-	    chunk = this.torrent.store.nextToDownload(this, true);
-	    if (chunk)
-		this.request(chunk);
-	    else
-		/* Nothing can be done */
-		break;
+	    } else {
+                /* Work stealing */
+                var peer;
+                var now = Date.now();
+                var oldest = now, oldestIdx = null;
+                for(var i = 0; i < this.torrent.peers.length; i++) {
+                    peer = this.torrent.peers[i];
+                    if (peer.requestedChunks[0] &&
+                        peer.requestedChunks[0].time < oldest &&
+                        peer.ip !== this.ip) {
+    
+                        oldest = peer.requestedChunks[0].time;
+                        oldestIdx = i;
+                    }
+                }
+                var age = now - oldest;
+                peer = this.torrent.peers[oldestIdx];
+                if (peer && age > READAHEAD_TIME) {
+    
+                    chunk = peer.requestedChunks[peer.requestedChunks.length - 1];
+                    if (chunk && this.has(chunk.piece)) {
+                        peer.requestedChunks.pop();
+                        if (chunk.timeout) {
+                            clearTimeout(chunk.timeout);
+                            chunk.timeout = null;
+                        }
+                        peer.sendCancel(chunk.piece, chunk.offset, chunk.length);
+                        console.log(this.ip, "stole from", peer.ip, ":", chunk, "age:", age / 1000);
+                        chunk.peer = this;
+                        this.request(chunk);
+                    } else
+                        break;
+                } else
+                    break;
+            }
 	}
     },
 
@@ -484,16 +510,31 @@ Peer.prototype = {
 	msg.setUint32(9, length);
 	this.sendMessage(msg);
 
+        chunk.time = Date.now();
 	chunk.timeout = setTimeout(function() {
 	    chunk.timeout = null;
-	    /* Let so. else try it */
-	    this.sendCancel(piece, offset, length);
-	    setTimeout(function() {
-		chunk.cancel();
-		this.removeRequestedChunk(piece, offset, length);
-	    }.bind(this), 5000);
-	}.bind(this), 5000);
+            console.log("Peer", this.ip, "timeout:", chunk);
+	    /* Let so. else try it: */
+	    chunk.cancel();
+	    chunk.timeout = setTimeout(function() {
+                if (this.state == 'connected') {
+	            this.sendCancel(piece, offset, length);
+		    this.removeRequestedChunk(piece, offset, length);
+                }
+	    }.bind(this), Math.ceil(READAHEAD_TIME));
+	}.bind(this), Math.ceil(READAHEAD_TIME));
 	this.requestedChunks.push(chunk);
+    },
+
+    choke: function() {
+        this.choking = true;
+        this.pendingChunks = [];
+        this.sendMessage(new Message([0]));
+    },
+
+    unchoke: function() {
+        this.choking = false;
+        this.sendMessage(new Message([1]));
     },
 
     sendCancel: function(piece, offset, length) {
@@ -527,9 +568,12 @@ function Message(len) {
 	len = this.buffer.byteLength - 4;
     }
     this.bufferView = new DataView(this.buffer);
-    this.bufferView.setUint32(0, len);
+    this.setLength(len);
 }
 Message.prototype = {
+    setLength: function(len) {
+        this.bufferView.setUint32(0, len);
+    },
     setInt8: function(offset, value) {
 	this.bufferView.setInt8(4 + offset, value);
     },

@@ -28,17 +28,22 @@ function Torrent(meta) {
 
     /* Init Storage */
     var name = UTF8ArrToStr(meta.info.name);
-    if (typeof meta.info.length == 'number')
+    var torrentSize;
+    if (typeof meta.info.length == 'number') {
+	torrentSize = meta.info.length;
 	this.files = [{ path: [name], size: meta.info.length }];
-    else if (meta.info.files.__proto__.constructor == Array)
+    } else if (meta.info.files.__proto__.constructor == Array) {
+	torrentSize = 0;
 	this.files = meta.info.files.map(function(file) {
-	    return { path: [name].concat(file.path.map(UTF8ArrToStr)),
+	    torrentSize += file.length;
+	    return { path: file.path.map(UTF8ArrToStr),
 		     size: file.length
 		   };
 	});
-    else
+    } else
 	throw "Invalid torrent: no files";
-    this.store = new Store(this, pieces, pieceLength);
+    this.store = new Store(this, torrentSize, pieces, pieceLength);
+    this.store.onRecoveryDone = this.start.bind(this);
 
     this.bytesDownloaded = 0;
     this.bytesUploaded = 0;  /* Altered by Peer */
@@ -54,19 +59,29 @@ function Torrent(meta) {
     else
 	console.warn("No tracker in torrent file");
 
-    // Can defer:
-    this.trackers.forEach(function(tg) { tg.start(); });
-    console.log("Torrent", this);
-
-    setInterval(this.canConnectPeer.bind(this), 100);
+    /* Updated by connectPeerLoop() */
+    this.peerStats = { connected: 0, connecting: 0 };
 }
 
 Torrent.prototype = {
+    start: function() {
+        this.trackers.forEach(function(tg) {
+            tg.start();
+        });
+
+        this.connectPeerLoop();
+        this.unchokeInterval = setInterval(
+            this.tickUnchoke.bind(this), 10000);
+    },
+
     end: function() {
 	this.trackers.forEach(function(tg) {
-	    console.log("stop tg", tg);
 	    tg.stop();
 	});
+        if (this.unchokeInterval) {
+            clearInterval(this.unchokeInterval);
+            this.unchokeInterval = null;
+        }
 	this.peers.forEach(function(peer) {
 	    console.log("end peer", peer);
 	    peer.end();
@@ -75,14 +90,47 @@ Torrent.prototype = {
 	this.store.remove();
     },
 
-    canConnectPeer: function() {
+    connectPeerLoop: function() {
+        var candidate, connecting = 0, connected = 0;
 	for(var i = 0; i < this.peers.length; i++) {
 	    var peer = this.peers[i];
-	    if (!peer.state && !peer.error) {
-		peer.connect();
-		break;
+            if (peer.state === 'connecting' || peer.state === 'handshake')
+                connecting++;
+            else if (peer.state === 'connected')
+                connected++;
+	    else if (!candidate && !peer.state && !peer.error) {
+		candidate = peer;
 	    }
 	}
+        this.peerStats.connected = connected;
+        this.peerStats.connecting = connecting;
+        if (candidate && connecting < 80 && connected < 60) {
+            /* Connect to another peer */
+            candidate.connect();
+            upShaper.enqueue({
+                amount: 8192,  /* 1 Connection attempt ~ 8 KB */
+                cb: this.connectPeerLoop.bind(this)
+            });
+        } else if (connected > 40) {
+            /* Disconnect from too many peers */
+            setTimeout(function() {
+                candidate = undefined;
+                this.peers.forEach(function(peer) {
+                    if (!candidate ||
+                        peer.downRate.getRate() < candidate.downRate.getRate()) {
+
+                        candidate = peer;
+                    }
+                });
+                if (candidate)
+                    candidate.end();
+
+                this.connectPeerLoop();
+            }.bind(this), 1000);
+        } else {
+            /* Wait */
+            setTimeout(this.connectPeerLoop.bind(this), 1000);
+        }
     },
 
     addPeer: function(info) {
@@ -98,6 +146,36 @@ Torrent.prototype = {
 		    peer.end();
 	    });
 	}
+    },
+
+    uploadSlots: 4,
+
+    tickUnchoke: function() {
+        var byScore = this.peers.filter(function(peer) {
+            return peer.state === 'connected' &&
+                !peer.seeder &&
+                peer.interested;
+        }).sort(function(peer1, peer2) {
+            var s1 = peer1.bytesDownloaded - peer1.bytesUploaded;
+            var s2 = peer2.bytesDownloaded - peer2.bytesUploaded;
+            if (s1 > s2)
+                return -1;
+            else if (s1 < s2)
+                return 1;
+            else
+                return (Math.random() < 0.5) ? -1 : 1;
+        });
+        var peer;
+        for(var i = 0; i < this.uploadSlots && i < byScore.length; i++) {
+            peer = byScore[i];
+            if (peer.choking)
+                peer.unchoke();
+        }
+        for(; i < byScore.length; i++) {
+            peer = byScore[i];
+            if (!peer.choking)
+                peer.choke();
+        }
     },
 
     getBitfield: function() {
@@ -149,7 +227,34 @@ Torrent.prototype = {
 	    return;
 	this.seeding = true;
 
-	// TODO: tell trackers
+	// tell trackers
+        this.trackers.forEach(function(tg) {
+            tg.request('completed');
+        });
+
 	this.mayDisconnectPeers();
+    },
+
+    /**
+     * Helper for users of store.consume()
+     **/
+    findFilePosition: function(path) {
+	var offset = 0, file, size;
+	for(var i = 0; i < this.files.length; i++) {
+	    var file = this.files[i];
+	    if (arrayEq(file.path, path)) {
+		break;
+	    } else {
+	        offset += file.size;
+	        file = undefined;
+            }
+	}
+        if (file) {
+            return {
+                file: file,
+                offset: offset,
+                size: file.size
+            };
+        }
     }
 };

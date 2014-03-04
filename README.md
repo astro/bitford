@@ -20,17 +20,15 @@ BitTorrent protocol 100% in JavaScript.
 
 ### UI
 
-* Display file saving progress
-
 ### Background
 
-* Couple piece receiving to chunk store with background sha1 hashing
-* Fix recovery
+* seeder peers dropping
+* cancellable file saving
+* Priorities
+* Error handling
 * store-backend: unify open bitford-store
-* Tracker event
-* Smarter peer selection
-* Priorities & unchoke buckets
-* Peer connections should wait for store recovery
+* Smarter request selection, based on downRate * requestedChunks.length
+* Profiling, profiling, optimization
 
 ### Unsolved
 
@@ -40,7 +38,6 @@ BitTorrent protocol 100% in JavaScript.
 ### Torrent Features
 
 * Peer limits
-  * Connect rate
   * by IP
   * Upload slots
 * Extension protocol

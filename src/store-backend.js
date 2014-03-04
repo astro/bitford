@@ -66,6 +66,7 @@ StoreBackend.prototype = {
 	if (typeof start !== 'number')
 	    start = 0;
 
+        this.recovered = start;
 	var offset, data;
 	this.transaction("readonly", function(objectStore) {
 	    var req = objectStore.openCursor(
@@ -85,13 +86,17 @@ StoreBackend.prototype = {
 	}.bind(this), function() {
 	    if (typeof offset === 'number') {
 		if (data) {
+                    // refit chunks
 		    this.existingCb(offset, data, function() {
 			this.recover(offset + 1);
 		    }.bind(this));
 		} else {
 		    this.recover(offset + 1);
 		}
-	    }
+	    } else {
+                delete this.recovered;
+                this.onRecoveryDone();
+            }
 	}.bind(this));
     },
 
@@ -118,66 +123,29 @@ StoreBackend.prototype = {
 	}
     },
 
-    readFrom: function(offset, cb) {
+    read: function(offset, cb) {
+        /* TODO: queue up and fill */
+        var data;
 	this.transaction("readonly", function(objectStore) {
-	    var req = objectStore.get(this.key(offset));
+	    var req = objectStore.openCursor(
+                IDBKeyRange.bound(this.key(0), this.key(offset)),
+                'prev'
+            );
 	    req.onsuccess = function(event) {
-		var data = req.result;
-		if (data) {
-		    cb(req.result);
-		} else {
-		    req = objectStore.openCursor(
-			IDBKeyRange.upperBound(this.key(offset)),
-			'prev'
-		    );
-		    req.onsuccess = function(event) {
-			var cursor = event.target.result;
-                        if (cursor && cursor.key && cursor.value) {
-                            var cursorOffset = parseInt(cursor.key.slice(41), 16);
-                            console.log("store index for", offset, "at", cursorOffset, "..", cursorOffset + cursor.value.byteLength);
-                            cb(cursor.value.slice(offset - cursorOffset));
-			} else {
-			    console.error("store readFrom offset too low", offset);
-			    cb();
-			}
-		    };
-                    req.onerror = function(e) {
-                        console.error("store index read", offset, e);
-                        cb();
-                    };
-		}
+                var cursor = event.target.result;
+                if (cursor && cursor.key.indexOf(this.basename + ".") === 0) {
+                    data = cursor.value;
+                    var dataOffset = parseInt(cursor.key.slice(this.basename.length + 1), 16);
+                    if (dataOffset < offset)
+                        data = data.slice(offset - dataOffset);
+                }
 	    }.bind(this);
 	    req.onerror = function(e) {
 		console.error("store read", offset, e);
-		cb();
 	    };
-	}.bind(this));
-    },
-
-    read: function(offset, length, cb) {
-	var result = new BufferList();
-
-	var readFrom = function(offset, remain) {
-	    if (remain < 1) {
-		return cb(result);
-	    }
-
-	    this.readFrom(offset, function(data) {
-		var len = data ? data.byteLength : 0;
-		if (len > 0) {
-		    if (len > remain) {
-			data = data.slice(0, remain);
-			len = data.byteLength;
-		    }
-		    result.append(data);
-		    readFrom(offset + len, remain - len);
-		} else {
-		    console.error("Read", len, "instead of", remain, "from", offset);
-		    return cb(result);
-		}
-	    });
-	}.bind(this);
-	readFrom(offset, length);
+	}.bind(this), function() {
+            cb(data);
+        });
     },
 
     write: function(offset, data, cb) {

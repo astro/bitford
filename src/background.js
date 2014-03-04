@@ -170,7 +170,7 @@ tryCreateTCPServer(6881, function(sock) {
 	    peer.torrent = torrents[i];
 	} else {
 	    console.error("incoming", peer.ip, "unknown torrent", peer.infoHash);
-	    throw "Peer for unknown torrent";
+            peer.end();
 	}
     });
 }, function(err, port) {

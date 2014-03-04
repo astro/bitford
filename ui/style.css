@@ -80,6 +80,10 @@ header h1 {
 .torrent .remove {
     float: right;
 }
+.torrent .recover-container {
+    margin: 0.1em 0;
+    background-color: #ffc;
+}
 .torrent .stats {
     font-size: 90%;
     color: #777;
@@ -133,6 +137,10 @@ header h1 {
     color: #777;
     padding-right: 2em;
 }
+.torrent .files .save-container {
+    list-style-type: none;
+    padding: 0;
+}
 .torrent .video-container {
     display: block;
     width: 100%;
@@ -141,7 +149,8 @@ header h1 {
     margin: 4px 0 4px;
     text-align: center;
 }
-.torrent .video-container video {
+.torrent .video-container video,
+.torrent .video-container webview {
     width: 100%;
 }
 
@@ -149,8 +158,6 @@ header h1 {
     border-spacing: 0;
     margin: 0 auto;
     display: block;
-    height: 10em;
-    overflow: auto;
 }
 .torrent .peers thead tr {
     background-color: #333;
@@ -162,6 +169,13 @@ header h1 {
 .torrent .peers th, .torrent .peers td {
     margin: 0;
     padding: 0.2em 0.5em;
+}
+.torrent .peers .state {
+    font-family: monospace;
+}
+.torrent .peers .choking .queuestats .up,
+.torrent .peers .choked .queuestats .down {
+    color: #ccc;
 }
 .torrent .peers tbody tr:hover {
     background-color: #ddd;

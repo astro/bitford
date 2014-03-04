@@ -1,35 +1,36 @@
-var httpStreamPort;
-
 createHTTPServer(function(req, res) {
-    var path = req.path.split("/");
+    var path = req.path.split("/").map(function(s) {
+	return decodeURIComponent(s);
+    });
     while(path[0] === "")
 	path.shift();
+    var torrentName;
+    if (path.length > 1)
+	torrentName = path.shift();
+    else
+	torrentName = path[0];
+    console.log("torrentName", torrentName, "path", path);
 
-    var size;
-    for(var i = 0; i < torrents.length; i++) {
-	var torrent = torrents[i];
-	for(var j = 0; j < torrent.files.length; j++) {
-	    if (arrayEq(torrent.files[j].path, path)) {
-		size = torrent.files[j].size;
-		break;
-	    }
-	}
-	if (j < torrent.files.length)
-	    break;
+    var torrent, pos;
+    for(var i = 0; !pos && i < torrents.length; i++) {
+	torrent = torrents[i];
+	if (torrent.name !== torrentName)
+	    continue;
+        pos = torrent.findFilePosition(path);
     }
-    if (i < torrents.length) {
-    	handleStreamRequest(req, res, path, size, torrent);
+    if (torrent && pos) {
+	var contentType = getMimeType(path);
+    	handleStreamRequest(req, res, contentType, pos.offset, pos.size, torrent);
     } else {
     	res.writeHead(404, "Not found", {});
     	res.end();
     }
 }, function(err, port) {
     if (port)
-	httpStreamPort = port;
+	window.httpStreamPort = port;
 });
 
-function handleStreamRequest(req, res, path, size, torrent) {
-    var contentType = getMimeType(path);
+function handleStreamRequest(req, res, contentType, torrentOffset, size, torrent) {
     var m, start, end;
     if ((m = (req.headers["Range"] + "").match(/^bytes=(\d*)-(\d*)/))) {
         start = parseInt(m[1], 10);
@@ -58,14 +59,13 @@ function handleStreamRequest(req, res, path, size, torrent) {
         if (looping)
             return;
         looping = true;
-        // console.log("loop", bytes, "/", end, size);
         if (bytes >= size || bytes >= end) {
             res.end();
             return;
         }
 
-        torrent.store.consumeFile(path, bytes, function(data) {
-            if (data.byteLength > 0) {
+        torrent.store.consume(torrentOffset + bytes, function(data) {
+            if (data && data.byteLength > 0) {
                 if (bytes + data.byteLength > end)
                     data = data.slice(0, end - bytes);
 		try {
@@ -75,8 +75,9 @@ function handleStreamRequest(req, res, path, size, torrent) {
 		}
                 bytes += data.byteLength;
                 looping = false;
-            } else
+            } else {
                 res.end();
+	    }
         });
     }
     res.onDrain = loop;
